@@ -1,0 +1,23 @@
+.header-container {
+    padding: 20px 40px;
+}
+
+.input-contaner {
+    padding: 20px 40px;
+}
+
+.editor-container {
+    padding: 20px 40px;
+}
+
+.container {
+    height: calc(100% - 76px);
+}
+
+#app > .ant-spin-nested-loading {
+    height: 100%;
+}
+
+#app > .ant-spin-nested-loading > .ant-spin-container {
+    height: 100%;
+}

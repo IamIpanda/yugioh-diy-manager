@@ -1,0 +1,31 @@
+{
+  "name": "yugioh-diy-manager",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.13.3",
+    "@sqlite.org/sqlite-wasm": "^3.47.0-build1",
+    "@zip.js/zip.js": "^2.7.53",
+    "antd": "^5.21.6",
+    "cdb-transformer": "file:../cdb-transformer/pkg",
+    "html2canvas": "^1.4.1",
+    "localforage": "^1.10.0",
+    "preact": "^10.24.3",
+    "react-icons": "^5.3.0",
+    "yugioh-card-react": "file:../yugioh-card-react"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.1",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.8",
+    "vite-plugin-top-level-await": "^1.4.4",
+    "vite-plugin-wasm": "^3.3.0",
+    "vite-tsconfig-paths": "^5.0.1"
+  }
+}

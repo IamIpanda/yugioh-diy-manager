@@ -1,0 +1,76 @@
+.editor {
+    height: 100%;
+}
+
+.editor img.card-image {
+    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+}
+
+.editor .ant-input-number .ant-input-number-handler-wrap {
+    display: none;
+}
+
+.editor .ant-input-number input {
+    text-align: center;
+}
+
+.editor .subtype {
+    width: auto;
+}
+.editor .subtype .ant-select-selector {
+    padding: 0px 12px;
+}
+
+.editor .subtype .ant-select-selector .ant-select-selection-overflow-item::after {
+    content: "╱";
+    padding: 0px 2px;
+    transform: scale(1.2);
+}
+
+.editor .subtype .ant-select-selector .ant-select-selection-overflow-item:last-child::after,
+.editor .subtype .ant-select-selector .ant-select-selection-overflow-item:nth-last-child(2)::after {
+    content: "";
+}
+
+#app .disappear-input input {
+    display: none;
+}
+
+#app .disappear-input span {
+    height: 100%;
+}
+
+.pendulum-scale .ant-input-number-wrapper {
+    height: 100%;
+    width: 80px;
+}
+.pendulum-scale .ant-input-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+.pendulum-scale input {
+    text-align: center !important;
+}
+textarea.pendulum-text {
+    border-radius: 0;
+}
+
+.yugioh-container {
+    cursor: pointer;
+}
+
+.link-marker-editor {
+    display: flex;
+    justify-content: center;
+}
+
+.link-marker-editor .link-marker-checkbox {
+    width: 32px;
+    height: 32px;
+}

@@ -1,0 +1,18 @@
+#input.ace {
+    font: inherit;
+    border: 1px solid;
+    border-radius: 0.375rem;
+    border-color: inherit;
+    padding: 8px 16px;
+    
+}
+
+#input.ace_focus {
+    border-color: #3182ce;
+}
+
+#input button.ant-float-btn.button-category {
+    position: absolute;
+    inset-inline-end: unset;
+    right: 70px
+}
