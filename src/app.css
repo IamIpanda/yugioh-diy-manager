@@ -2,16 +2,13 @@
     padding: 20px 40px;
 }
 
-.input-contaner {
+.input-container, .editor-container {
     padding: 20px 40px;
-}
-
-.editor-container {
-    padding: 20px 40px;
+    height: 100%;
 }
 
 .container {
-    height: calc(100% - 76px);
+    height: calc(100vh - 76px);
 }
 
 #app > .ant-spin-nested-loading {
@@ -20,4 +17,16 @@
 
 #app > .ant-spin-nested-loading > .ant-spin-container {
     height: 100%;
+}
+
+@media(max-width: 768px) {
+    .header-container {
+        padding: 8px 20px;
+    }
+    .container {
+        height: calc(100vh - 52px);
+    }
+    .input-container, .editor-container {
+        
+    }
 }

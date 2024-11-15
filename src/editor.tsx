@@ -3,15 +3,21 @@ import { cloneElement } from "preact";
 import { useContext, useEffect, useState } from "preact/hooks";
 import { createContext, HTMLProps, ReactElement } from "preact/compat";
 import { Select, InputNumber, Input, Space, SelectProps, Row, Col, GetProps, Modal, Button, Upload, Dropdown } from 'antd'
+
+import AceEditor from "react-ace";
+import "ace-builds/src-noconflict/mode-lua";
+import "ace-builds/src-noconflict/theme-github";
+import html2canvas from "html2canvas";
+
 import { Card as CardImage, Data } from "yugioh-card-react";
 import * as transformer from "cdb-transformer";
 
-import { AppContext, ConfigContext } from "./model/context";
+import { current_storage } from "./model/storage";
+import { AppContext, ConfigContext, Context } from "./model/context";
 import { ATTRIBUTE_NAMES, Card, LINKER_NAMES, PREFIXES, RACE_NAMES, SUB_TYPES, TYPE_NAMES } from "./model/card";
 
 import "./editor.css"
-import html2canvas from "html2canvas";
-import { current_storage } from "./model/storage";
+
 import { AiOutlineContainer, AiOutlineDelete, AiOutlineDownload, AiOutlineUpload } from "react-icons/ai";
 const SUB_TYPE_OPTIONS = new Map(Array.from(TYPE_NAMES).filter((p) => p[0] != 0 && (p[0] & SUB_TYPES) > 0).map((p) => [p[0], { label: p[1], value: p[0] }]))
 
@@ -60,6 +66,7 @@ function FormItem(props: { name: keyof Card, children: ReactElement } & HTMLProp
     let [react_function_component, fuck] = useState(false)
     let card = form.value as any
     return cloneElement(props.children, { value: card[props.name], onChange: (e: any) => {
+        if (e == null) e = 0
         let next_value = e
         if (e.target) next_value = e.target.value
         card[props.name] = next_value
@@ -93,7 +100,7 @@ export function Editor() {
     let is_link = (card.type & Data.Type.Link) > 0;
     
     let send_card_signal = () => { context.set_context({ ...context, card_signal: !context.card_signal }) }
-    let silent_triggers = { onFocus: () => { context.disable_refresh = true }, onblur: () => { context.disable_refresh = false } }
+    let silent_triggers = { onFocus: () => { context.disable_refresh = true }, onBlur: () => { context.disable_refresh = false; send_card_signal() } }
     
     useEffect(() => {
         transformer.set_string_conf(config.strings)
@@ -133,17 +140,22 @@ export function Editor() {
     useEffect(() => { 
         refresh_image(true)
         refresh_center_image(false)
-    }, [context.card.range?.start, context.package_name]) // start seems to be immortal value.
+    }, [context.card?.range?.start, context.package_name]) // start seems to be immortal value.
+
+    useEffect(() => {
+        if (document.fonts.status == 'loading')
+            wait_font_loading(context)
+    }, [])
 
     return <Form className="editor" formValue={card} onValuesChange={send_card_signal}>
-        <Row span={12} style={{ height: '50%' }}>
-            <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12} className="full" style={use_full_image ? { "textAlign": 'center' } : undefined}>
+        <Row span={12} className="panel-container">
+            <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12} className="full-width card-image-container" style={use_full_image ? { "textAlign": 'center' } : undefined}>
             {
                 use_full_image ? <img class="card-image" src={full_image ?? ""} />
                 : <CardImage id="generated-image" card={card} image={center_image} lang={Data.Language.ZH_CN} asset_prefix={import.meta.env.BASE_URL+"assets"} style={{ height: '100%', margin: 'auto' }} onClick={() => set_dialog('image') } />
             }
             </Col>
-            <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12}>
+            <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12} className='panel'>
                 <Line>
                     <FormItem name='name'><Input style={{ textAlign: 'center' }} {...silent_triggers}></Input></FormItem>
                     <FormItem name='code'><InputNumber controls={false} style={{ width: '200px' }} addonBefore='(' addonAfter=')'></InputNumber></FormItem>
@@ -229,13 +241,13 @@ export function Editor() {
         {is_pendulum ? 
             <Row span={6} style={{ paddingTop: "20px", height: '25%', width: '100%' }}>
                 <Space.Compact style={{ width: '100%', height: '100%', paddingBottom: '20px' }}>
-                    <FormItem name="lscale"><InputNumber className="pendulum-scale pendulum-scale-left" controls={false} addonBefore="←"></InputNumber></FormItem>
+                    <FormItem name="left_scale"><InputNumber className="pendulum-scale pendulum-scale-left" controls={false} addonBefore="←"></InputNumber></FormItem>
                     <FormItem name="pendulum_text"><Input.TextArea className="pendulum-text" {...silent_triggers} /></FormItem>
-                    <FormItem name="rscale"><InputNumber className="pendulum-scale pendulum-scale-right" controls={false} addonAfter="→"></InputNumber></FormItem>
+                    <FormItem name="right_scale"><InputNumber className="pendulum-scale pendulum-scale-right" controls={false} addonAfter="→"></InputNumber></FormItem>
                 </Space.Compact>
             </Row>
         : null}
-        <Row span={is_pendulum ? 6 : 12} style={{ paddingTop: "20px", height: is_pendulum ? '25%' : '50%', width: '100%' }}>
+        <Row span={is_pendulum ? 6 : 12} className={`desc-container`} style={{ paddingTop: "20px", height: is_pendulum ? '25%' : '50%', width: '100%' }}>
             <FormItem name='desc' className="description"><Input.TextArea {...silent_triggers} /></FormItem>
         </Row>
         <Modal open={dialog == 'image'} onCancel={() => set_dialog(null)} footer={null} width={1434} height={2071} closable={false}>
@@ -245,7 +257,7 @@ export function Editor() {
             onCancel={() => { card.texts = editing_text.split("\n"); send_card_signal(); set_dialog(null) }} >
             <Input.TextArea style={{ height: '600px' }} defaultValue={editing_text} onChange={(e) => set_editing_text((e.target as any).value)} />
         </Modal>
-        <Modal open={dialog == 'script'} footer={null} title="卡片脚本" closable={false} width="100%" style={{ maxWidth: '1400px' }} destroyOnClose
+        <Modal open={dialog == 'script'} footer={null} title={`卡片脚本 ${card.name}(${card.code})`} closable={false} width="100%" style={{ maxWidth: '1400px' }} destroyOnClose
             onCancel={() => {
                 let lua_path = `script/c${card.code}.lua`
                 if (editing_text === "")
@@ -253,7 +265,30 @@ export function Editor() {
                 current_storage.setItem(lua_path, editing_text); 
                 set_dialog(null) 
             }}>
-            <Input.TextArea style={{ height: '80vw', maxHeight: '900px' }} placeholder={"脚本未创建..."} defaultValue={editing_text} onChange={(e) => set_editing_text((e.target as any).value)} />
+            <AceEditor
+                placeholder="脚本未创建..."
+                mode="lua"
+                theme="github"
+                name="script"
+                onChange={(t) => set_editing_text(t)}
+                fontSize={14}
+                lineHeight={19}
+                tabSize={8}
+                showPrintMargin={true}
+                showGutter={true}
+                highlightActiveLine={true}
+                style={{ width: '100%', height: '80vw', maxHeight: '900px', margin: '20px 0 10px 0' }}
+                defaultValue={editing_text}
+                setOptions={{
+                    enableBasicAutocompletion: true,
+                    enableLiveAutocompletion: true,
+                    enableSnippets: false,
+                    enableMobileMenu: true,
+                    showLineNumbers: true,
+                    tabSize: 2,
+                }} />
+
+            {/*<Input.TextArea style={{ height: '80vw', maxHeight: '900px' }} placeholder={"脚本未创建..."} defaultValue={editing_text} onChange={(e) => set_editing_text((e.target as any).value)} />*/}
         </Modal>
     </Form>
 }
@@ -315,3 +350,8 @@ function download(filename: string, image: string) {
     document.body.removeChild(link);
 }
 
+async function wait_font_loading(context: Context) {
+    context.set_context({ ...context, loading: '正在载入字体...' })
+    await document.fonts.ready;
+    context.set_context({ ...context, loading: undefined });
+}

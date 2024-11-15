@@ -2,11 +2,22 @@
     border: none;
 }
 
-.header h4 {
+.header h4.title {
     margin: 0
+}
+
+@media (max-width: 544px) {
+    .header h4.title {
+        display: none;
+    }
 }
 
 .header svg {
     padding-top: 4px;
     margin-right: 4px;
+}
+
+.package-table svg {
+    margin-left: 5px;
+    vertical-align: middle;
 }

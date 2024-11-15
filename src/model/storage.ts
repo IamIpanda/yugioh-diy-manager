@@ -5,25 +5,29 @@ import { generate_from_text, read_from_array_buffer } from "./card";
 import { format } from "cdb-transformer";
 
 const MAGIC_DATABASE_NAME_FIELD = "name"
+export let current_storage: LocalForage;
 
-localforage.config({ name: 'ygopro-diy-mnager' })
+export async function init_storage() {
+    localforage.config({ name: 'ygopro-diy-mnager' })
 
-// Init config values
-for (let key in default_values)
-    if (await localforage.getItem(key) == null)
-        await localforage.setItem(key, (default_values as any)[key])
-    
-// Init current config values
-let last_pacakge_name: string = await localforage.getItem('last_package') ?? DEFAULT_PACKAGE_NAME
-export let current_storage = localforage.createInstance({ name: last_pacakge_name });
-// If this package already gone by some reason, reset to default.
-if (await current_storage.getItem(MAGIC_DATABASE_NAME_FIELD) == null) {
-    localforage.dropInstance({ name: last_pacakge_name }) 
-    current_storage = localforage.createInstance({ name: DEFAULT_PACKAGE_NAME })
-    localforage.setItem('last_package', DEFAULT_PACKAGE_NAME)
+    // Init config values
+    for (let key in default_values)
+        if (await localforage.getItem(key) == null)
+            await localforage.setItem(key, (default_values as any)[key])
+        
+    // Init current config values
+    let last_pacakge_name: string = await localforage.getItem('last_package') ?? DEFAULT_PACKAGE_NAME
+    current_storage = localforage.createInstance({ name: last_pacakge_name });
+    // If this package already gone by some reason, reset to default.
+    if (await current_storage.getItem(MAGIC_DATABASE_NAME_FIELD) == null) {
+        console.error(`Seems storage ${last_pacakge_name} already gone.`)
+        localforage.dropInstance({ name: last_pacakge_name }) 
+        current_storage = localforage.createInstance({ name: DEFAULT_PACKAGE_NAME })
+        localforage.setItem('last_package', DEFAULT_PACKAGE_NAME)
+    }
+    if (last_pacakge_name == DEFAULT_PACKAGE_NAME)
+        await load_default_package()
 }
-if (last_pacakge_name == DEFAULT_PACKAGE_NAME)
-    await load_default_package()
 
 export async function load_default_package() {
     for (let key in mydiy_values)
@@ -76,19 +80,24 @@ export async function accept_package(filename: string, buf: ArrayBuffer, callbac
         else if (entry.filename.startsWith("pics/") && entry.compressedSize > 0) 
             return read_blob(entry).then((blob) => current_storage.setItem(entry.filename, blob)).then(then_callback)
         else 
-            console.log(`File ignored: ${entry.filename}`)
+            console.warn(`File ignored: ${entry.filename}`)
         return null
     }))
     reader.close
 }
 
-export async function save_database(filename: string, buf: ArrayBuffer) {
-    let cards = read_from_array_buffer(buf);
-    let text = cards.map(format).join("\n\n")
+export async function save_database(filename: string, buf: ArrayBuffer | string) {
+    let text;
+    if (typeof buf == 'string')
+        text = buf;
+    else {
+        let cards = read_from_array_buffer(buf);
+        text = cards.map(format).join("\n\n")
+    }
     return current_storage.setItem(filename, text)
 }
 
-export async function accept_database(filename: string, buf: ArrayBuffer) {
+export async function accept_database(filename: string, buf: ArrayBuffer | string) {
     let package_name = get_package_name(filename);
     await set_package(package_name);
     await save_database(package_name + ".cdb", buf)

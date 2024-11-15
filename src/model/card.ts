@@ -8,6 +8,8 @@ export type Card = BinaryCard & ImageCard & {
     main_type: number,
     prefix_type: number,
     sub_type: number[],
+    left_scale: number,
+    right_scale: number,
     setcode1: number,
     setcode2: number,
     setcode3: number,
@@ -68,12 +70,19 @@ export function transform_card_data(card: BinaryCard, rules?: RegExp[]): Card {
         prefix_type: {
             enumerable: true, 
             get() { return card.type & PREFIEX_SUMS[card.type & 7] }, 
-            set(v) { card.type = card.type & ~PREFIEX_SUMS[card.type & 7] | v }
+            set(v) { card.type = card.type & ~PREFIEX_SUMS[card.type & 7] | v; }
         },
         sub_type: {
             enumerable: true, 
             get() { return separate_bits(card.type & SUB_TYPES) }, 
-            set(v) { card.type = card.type &~SUB_TYPES | v.reduce(add, 0) } 
+            set(v) { 
+                let pendulum_before = (card.type & Data.Type.Pendulum) > 0
+                let pendulum_after = (v & Data.Type.Pendulum) > 0
+                card.type = card.type &~SUB_TYPES | v.reduce(add, 0) 
+                if (!pendulum_before && pendulum_after) desc.insert_pendulum(v)
+                if (pendulum_before && !pendulum_after) desc.delete_pendulum()
+                if (pendulum_before !== pendulum_after) card.desc = desc.toString()
+            } 
         },
         setcode1: {
             enumerable: true,
@@ -109,6 +118,14 @@ export function transform_card_data(card: BinaryCard, rules?: RegExp[]): Card {
         length_fix: {
             get() { return length_fix.full },
             set(v) { length_fix.full = v }
+        },
+        left_scale: {
+            get() { return card.lscale },
+            set(v) { card.lscale = v; desc.reformat_pendulum_scale(v, card.rscale); card.desc = desc.toString() }
+        },
+        right_scale: {
+            get() { return card.rscale },
+            set(v) { card.rscale = v; desc.reformat_pendulum_scale(card.lscale, v); card.desc = desc.toString() }
         }
     })
     return card_hybrid
@@ -136,6 +153,7 @@ class Description {
             }
             else if (line === "【怪兽效果】" || line === "【怪兽描述】") {
                 this.divider = line;
+                if (! this.components.includes(1)) this.components.push(1)
                 this.components.push(2)
                 current_component = 3;
             }
@@ -172,6 +190,23 @@ class Description {
                 str += component + "\n"
         }
         return str;
+    }
+
+    insert_pendulum(type: Data.Type) {
+        this.delete_pendulum()
+        this.components = [0, 1, 2, ...this.components]
+        if (this.divider == null)
+            this.divider = (type & Data.Type.Effect) ? "【怪兽效果】" : "【怪兽描述】"
+        if (this.pendulum_header == null)
+            this.reformat_pendulum_scale(0, 0)
+    }
+
+    delete_pendulum() {
+        this.components = this.components.filter((n) => ! (typeof n == 'number' && n <= 2))
+    }
+
+    reformat_pendulum_scale(lscale: number, rscale: number) {
+        this.pendulum_header = `←${lscale} 【灵摆】 ${rscale}→`
     }
 }
 

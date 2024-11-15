@@ -27,8 +27,8 @@ html body #app .full {
     height: 100%;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 992px) {
     html {
-        height: 300%
+        height: unset;
     }
 }

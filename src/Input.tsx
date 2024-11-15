@@ -22,13 +22,13 @@ function TextInput() {
     let [category_open, set_category_open] = useState(false)
     let [search, set_search] = useState("")
     let [text, set_text] = useState(context.text);
+    let [force_refresh, fuck] = useState(false);
 
     let main_input = useRef<GetRef<typeof Input>>(null)
     let search_input = useRef<GetRef<typeof Input>>(null)
 
     const refresh = () => {
         if (!diff) return;
-        if (context.disable_refresh) return;
         let cards = parse(text)
         context.set_context({...context, text, cards})
         set_diff(null)
@@ -37,26 +37,32 @@ function TextInput() {
         let n = setInterval(refresh, 1000);
         return () => clearInterval(n);
     })
+    useEffect(refresh, [force_refresh])
     useEffect(() => set_text(context.text), [context.text])
     useEffect(() => {
         if (context.cards.length == 0) return;
         let _card = context.cards.find((card) => card.range != null && card.range.start <= cursor && card.range.end >= cursor)
         if (_card != null) context.set_context({...context, card: transform_card_data(_card, config.not_effect_rules)})
     }, [context.cards, cursor])
-    const handler = (e: any) => { if (e.target === document.activeElement) set_cursor(e.target.selectionStart); }
+    const handler = () => {
+        let element = (main_input.current as any).resizableTextArea.textArea;
+        if (element === document.activeElement) set_cursor(element.selectionStart); 
+    }
     useEffect(() => {
         if (main_input.current == null) return
-        let element: HTMLTextAreaElement = (main_input.current as any).resizableTextArea.textArea;
-        element.addEventListener('selectionchange', handler)
-        return () => element.removeEventListener("selectionchange", handler)
+        document.addEventListener('selectionchange', handler)
+        return () => document.removeEventListener("selectionchange", handler)
     }, [main_input.current])
     useEffect(() => {
+        if (context.card == null || diff) return
         let new_text = format(context.card);
         let range = context.card.range!;
         let end = range.end + (context.card.length_fix ?? 0)
         set_text(text.slice(0, range.start) + new_text + "\n" + text.slice(end, text.length))
-        set_diff(true)
         context.card.length_fix = new_text.length - (range.end - range.start) + 1
+        if (context.disable_refresh) return;
+        set_diff(true)
+        fuck(!force_refresh)
     }, [context.card_signal]) 
     return <div class="full" id="input">
     <Input.TextArea 
