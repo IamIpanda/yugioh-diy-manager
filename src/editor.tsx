@@ -29,8 +29,11 @@ function Line(props: GetProps<typeof Space.Compact>) {
     return <Space.Compact {...props} style={{ 'width': '100%', paddingBottom: '20px', justifyContent: 'center' }}>{props.children}</Space.Compact>
 }
 
-function Select2(props: SelectProps) {
-    return <Select showSearch filterOption={(input, option) => option?.label == null ? false : option.label.toString().indexOf(input)>0} style={{ width: '100%' }} {...props} />
+function Select2(props: SelectProps & { fallback?: string }) {
+    let { fallback, ...rest_props } = props
+    let render: GetProps<typeof Select>['labelRender'] = undefined
+    if (fallback) render = (props) => props.label ?? fallback
+    return <Select showSearch filterOption={(input, option) => option?.label == null ? false : option.label.toString().indexOf(input) > 0} labelRender={render} style={{ width: '100%' }} {...rest_props} />
 }
 
 function LinkMarkerEditor(props: { onChange?: (value: number) => void } & Omit<HTMLProps<HTMLDivElement>, 'onChange'>) {
@@ -161,8 +164,8 @@ export function Editor() {
                     <FormItem name='code'><InputNumber controls={false} style={{ width: '200px' }} addonBefore='(' addonAfter=')'></InputNumber></FormItem>
                 </Line>
                 <Line>
-                <FormItem name='prefix_type'><Select2 options={(PREFIXES[card.type & 7] ?? []).map((v) => ({ label: TYPE_NAMES.get(v) ?? '通常', value: v }))} /></FormItem>
-                    <FormItem name='main_type'><Select2 options={[1, 2, 4].map((i) => ({ label: TYPE_NAMES.get(i)!, value: i }))} /></FormItem>
+                    <FormItem name='prefix_type'><Select2 options={(PREFIXES[card.type & 7] ?? []).map((v) => ({ label: TYPE_NAMES.get(v) ?? '通常', value: v }))} fallback="无副类别" /></FormItem>
+                    <FormItem name='main_type'><Select2 options={[1, 2, 4].map((i) => ({ label: TYPE_NAMES.get(i)!, value: i }))} fallback="无类别" /></FormItem>
                 </Line>
                 <Line>
                     <FormItem name='attribute'><Select2 disabled={!is_monster} style={{ width: '60px' }} options={transform_map_to_options(ATTRIBUTE_NAMES)} /></FormItem>
@@ -351,7 +354,7 @@ function download(filename: string, image: string) {
 }
 
 async function wait_font_loading(context: Context) {
-    context.set_context({ ...context, loading: '正在载入字体...' })
-    await document.fonts.ready;
+    // context.set_context({ ...context, loading: '正在载入字体...' })
+    // await document.fonts.ready;
     context.set_context({ ...context, loading: undefined });
 }

@@ -8,6 +8,8 @@ import { DEFAULT_PACKAGE_NAME } from './model/default';
 import { generate_from_text, transform_not_effect_rules } from './model/card';
 import { AppContext, ConfigContext, Context, load_strings, load_context } from './model/context'
 import { accept_database, accept_package, current_package_name, current_storage, delete_package, generate_package, load_default_package, package_list, set_package } from './model/storage';
+
+import { html as Doc } from './assets/help.md'
 import "./header.css"
 
 const CURRENT_VERSION = 1;
@@ -126,13 +128,7 @@ function FileModal(props: GetProps<typeof Modal>) {
 
 function HelpModal(props: GetProps<typeof Modal>) {
     return <Modal title={null} footer={null} closable={false} {...props}>
-        <Typography>
-            <Typography.Title level={2}>卡包编辑器</Typography.Title>
-            <Typography.Paragraph>此页面意在随时随地编辑适用于<Typography.Text code>ygopro</Typography.Text>的数据库和卡包。</Typography.Paragraph>
-            <blockquote>在一切开始之前，请记住：此页面是一个<b>纯前端服务</b>。你的所有数据都以<Typography.Text code>IndexedDB</Typography.Text>形式保存在本地浏览器，没有任何数据实际上传至服务器，页面上的「上传」与「下载」仅为方便理解。</blockquote>
-            <Typography.Paragraph>所有卡片以文本形式记录，格式参考自知名翻译作者<b>XYZ龙加农</b>的卡片格式。</Typography.Paragraph>
-            <Typography.Paragraph>剩下的事情鸽了，谁没事写文档</Typography.Paragraph>
-        </Typography>
+        <Typography dangerouslySetInnerHTML={{ __html: Doc.replace("{{BUILD_DATE}}", BUILD_DATE).replace("{{PACKAGE_VERSION}}",PACKAGE_VERSION) }} />
     </Modal>
 }
 
