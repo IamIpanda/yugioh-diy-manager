@@ -37,9 +37,10 @@ export const ATTRIBUTE_NAMES: Map<number, string> = new Map(transformer.attribut
 export const CATEGORY_NAMES: Map<number, string> = new Map(transformer.category_names());
 export const LINKER_NAMES: Map<number, string> = new Map(transformer.linker_names());
 export const SUB_TYPES = Data.Type.Fusion + Data.Type.Ritual + Data.Type.Spirit + Data.Type.Union + Data.Type.Dual + Data.Type.Tuner + Data.Type.Synchro +
-    Data.Type.Token + Data.Type.Flip + Data.Type.Toon + Data.Type.Xyz + Data.Type.Pendulum + Data.Type.Spsummon + Data.Type.Link
+    Data.Type.Flip + Data.Type.Toon + Data.Type.Xyz + Data.Type.Pendulum + Data.Type.Spsummon + Data.Type.Link
+export const EX_TYPES = Data.Type.Ritual + Data.Type.Synchro + Data.Type.Xyz + Data.Type.Link + Data.Type.Fusion;
 export const PREFIXES: Record<number, number[]> = {
-    [Data.Type.Monster]: [Data.Type.Normal, Data.Type.Effect],
+    [Data.Type.Monster]: [Data.Type.Normal, Data.Type.Effect, Data.Type.Token],
     [Data.Type.Spell]: [0, Data.Type.Ritual, Data.Type.Quickplay, Data.Type.Continuous, Data.Type.Equip, Data.Type.Field],
     [Data.Type.Trap]: [0, Data.Type.Continuous, Data.Type.Counter]
 }
@@ -56,7 +57,7 @@ export function transform_card_data(card: BinaryCard, rules?: RegExp[]): Card {
     let desc = new Description(card.desc, rules)    
     let subtype_text = undefined;
     if ((card.type & Data.Type.Monster) > 0)
-        subtype_text = transformer.format_race(card.race) + "族" + transformer.format_subtype(card.type)
+        subtype_text = transformer.format_race(card.race) + "族" + transformer.format_subtype(card.type).replace("/非效果", "")
             + ((card.type & Data.Type.Effect) > 0 ? "/效果" : "")
     
     let length_fix: {full: number | null} = { full: null };

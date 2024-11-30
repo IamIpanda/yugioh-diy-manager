@@ -74,7 +74,13 @@ function TextInput() {
     {/* @ts-ignore */}
     <FloatButton className="button-category" icon={<AiOutlineGroup />} tooltip="卡片目录" onClick={() => { set_category_open(true) }} />
 
-    <Modal title="卡片目录" onClose={()=>set_category_open(false)} onCancel={()=>set_category_open(false)} open={category_open} footer={null} focusTriggerAfterClose={false}>
+        <Modal title="卡片目录" 
+            open={category_open} 
+            footer={null}
+            focusTriggerAfterClose={false}
+            onClose={() => set_category_open(false)} 
+            onCancel={() => set_category_open(false)}  
+            afterOpenChange={(o) => { if (o) (search_input.current as any)?.select(); }}>
         <Input ref={search_input} style={{ margin: '10px 0px' }} placeholder='搜索卡片...' onChange={(e) => set_search((e.target as HTMLInputElement)?.value ?? "")} />
         <Table<Card> 
             virtual

@@ -14,7 +14,7 @@ import * as transformer from "cdb-transformer";
 
 import { current_storage } from "./model/storage";
 import { AppContext, ConfigContext, Context } from "./model/context";
-import { ATTRIBUTE_NAMES, Card, LINKER_NAMES, PREFIXES, RACE_NAMES, SUB_TYPES, TYPE_NAMES } from "./model/card";
+import { ATTRIBUTE_NAMES, Card, EX_TYPES, LINKER_NAMES, PREFIXES, RACE_NAMES, SUB_TYPES, TYPE_NAMES } from "./model/card";
 
 import "./editor.css"
 
@@ -104,6 +104,7 @@ export function Editor() {
     
     let send_card_signal = () => { context.set_context({ ...context, card_signal: !context.card_signal }) }
     let silent_triggers = { onFocus: () => { context.disable_refresh = true }, onBlur: () => { context.disable_refresh = false; send_card_signal() } }
+    let is_ex_monster = (card: Card) => card.type & Data.Type.Monster && card.type & EX_TYPES
     
     useEffect(() => {
         transformer.set_string_conf(config.strings)
@@ -164,13 +165,16 @@ export function Editor() {
                     <FormItem name='code'><InputNumber controls={false} style={{ width: '200px' }} addonBefore='(' addonAfter=')'></InputNumber></FormItem>
                 </Line>
                 <Line>
-                    <FormItem name='prefix_type'><Select2 options={(PREFIXES[card.type & 7] ?? []).map((v) => ({ label: TYPE_NAMES.get(v) ?? '通常', value: v }))} fallback="无副类别" /></FormItem>
+                    <FormItem name='prefix_type'><Select2 
+                                                    options={(PREFIXES[card.type & 7] ?? []).map((v) => ({ label: v == Data.Type.Normal && is_ex_monster(card) ? '非效果' : TYPE_NAMES.get(v) ?? '通常', value: v }))} 
+                                                    fallback={is_ex_monster(card) ? "非效果" : "无副类别" } />
+                    </FormItem>
                     <FormItem name='main_type'><Select2 options={[1, 2, 4].map((i) => ({ label: TYPE_NAMES.get(i)!, value: i }))} fallback="无类别" /></FormItem>
                 </Line>
                 <Line>
                     <FormItem name='attribute'><Select2 disabled={!is_monster} style={{ width: '60px' }} options={transform_map_to_options(ATTRIBUTE_NAMES)} /></FormItem>
-                    <FormItem name='level'><InputNumber disabled={!is_monster} style={{ width: '180px' }} addonAfter={is_link ? undefined : is_xyz ? '阶' : '星'} addonBefore={is_link ? 'LINK-' : undefined}></InputNumber></FormItem>
-                    <FormItem name='race'><Select2 disabled={!is_monster} style={{ width: '100px' }} options={transform_map_to_options(RACE_NAMES)} /></FormItem>
+                    <FormItem name='level'><InputNumber max={13} disabled={!is_monster} style={{ width: '180px' }} addonAfter={is_link ? undefined : is_xyz ? '阶' : '星'} addonBefore={is_link ? 'LINK-' : undefined}></InputNumber></FormItem>
+                    <FormItem name='race'><Select2 disabled={!is_monster} style={{ width: '100px' }} popupMatchSelectWidth={180} options={transform_map_to_options(RACE_NAMES)} /></FormItem>
                     <FormItem name="sub_type">
                         <Select2 disabled={!is_monster} style={{ width: '100%' }} allowClear className="subtype" mode="multiple" placeholder='无额外类别' options={Array.from(SUB_TYPE_OPTIONS.values())} tagRender={(props) => {
                             return <span>{props.label}</span>
@@ -182,10 +186,10 @@ export function Editor() {
                 {is_link ? <Line><FormItem name='linkmarker'><LinkMarkerEditor /></FormItem></Line> : null }
                 <Line>
                     <Input className="disappear-input" style={{ width: '60px' }} addonBefore="系列：" />
-                    <FormItem name='setcode1'><Select2 allowClear options={Array.from(set_names.entries()).map((v) => ({ label: v[1], value: v[0] }))} /></FormItem>
-                    <FormItem name='setcode2'><Select2 allowClear options={Array.from(set_names.entries()).map((v) => ({ label: v[1], value: v[0] }))} /></FormItem>
-                    <FormItem name='setcode3'><Select2 allowClear options={Array.from(set_names.entries()).map((v) => ({ label: v[1], value: v[0] }))} /></FormItem>
-                    <FormItem name='setcode4'><Select2 allowClear options={Array.from(set_names.entries()).map((v) => ({ label: v[1], value: v[0] }))} /></FormItem>
+                    <FormItem name='setcode1'><Select2 allowClear popupMatchSelectWidth={180} options={Array.from(set_names.entries()).map((v) => ({ label: v[1], value: v[0] }))} /></FormItem>
+                    <FormItem name='setcode2'><Select2 allowClear popupMatchSelectWidth={180} options={Array.from(set_names.entries()).map((v) => ({ label: v[1], value: v[0] }))} /></FormItem>
+                    <FormItem name='setcode3'><Select2 allowClear popupMatchSelectWidth={180} options={Array.from(set_names.entries()).map((v) => ({ label: v[1], value: v[0] }))} /></FormItem>
+                    <FormItem name='setcode4'><Select2 allowClear popupMatchSelectWidth={180} options={Array.from(set_names.entries()).map((v) => ({ label: v[1], value: v[0] }))} /></FormItem>
                 </Line>
                 <Line>
                     <Button onClick={() => { set_editing_text(card.texts.join("\n")); set_dialog('texts')} }>提示文本</Button>

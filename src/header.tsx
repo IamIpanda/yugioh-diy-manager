@@ -107,7 +107,7 @@ function NewModal(props: Omit<GetProps<typeof Modal>, 'onOk'> & { onOk?: (n: str
     return <Modal title="新建卡包" 
                   closable={false}
                   onOk={() => props.onOk?.call(null, name)} 
-                  afterOpenChange={(o) => { if (o) input.current?.focus() }} 
+                  afterOpenChange={(o) => { if (o) input.current?.select() }} 
                   cancelButtonProps={{ style: { display: 'none' } }} 
                   okText="确定" 
                   {...rest_props}>
@@ -118,9 +118,13 @@ function NewModal(props: Omit<GetProps<typeof Modal>, 'onOk'> & { onOk?: (n: str
 
 function FileModal(props: GetProps<typeof Modal>) {
     let context = useContext(AppContext)
+    let input = useRef<InputRef>(null);
     let [nodes, set_nodes] = useState<TreeDataNode[]>([])
-    useEffect(() => { file_tree(context.package_name).then(set_nodes) }, [props.open])
-    return <Modal title="文件" closable={false} footer={null} {...props}>
+    let [search, set_search] = useState("")
+    useEffect(() => { file_tree(context.package_name, search).then(set_nodes) }, [props.open, search])
+    return <Modal title="文件" closable={false} footer={null} afterOpenChange={(o) => { if (o) input.current?.select() }}  {...props}>
+        {/*@ts-ignore*/}
+        <Input ref={input} placeholder="搜索文件" style={{ margin: '4px 0px 8px 0px' }} onChange={(e) => set_search(e.currentTarget.value)} />
         <Tree defaultExpandedKeys={['root']} treeData={nodes} height={800} />
     </Modal>
 }
@@ -260,11 +264,12 @@ async function new_package(context: Context, name: string) {
     context.set_context({ ...context, package_name: name, filename: name + ".cdb", text: "", cards: [], card: undefined })
 }
 
-async function file_tree(name: string): Promise<TreeDataNode[]> {
+async function file_tree(name: string, search?: string): Promise<TreeDataNode[]> {
     let files = await current_storage.keys()
     let root_node: TreeDataNode = { key: 'root', title: name, children: [] }
     for (let full_filename of files) {
         if (full_filename == 'name') continue;
+        if (search != null && search !== "" && full_filename.indexOf(search) < 0) continue;
         let current_node = root_node
         let current_path = ''
         let paths = full_filename.split("/")
@@ -296,7 +301,7 @@ export function Header() {
         <Space>
             <Tooltip title='上传并新建'><UploadWrapper><Button aria-label='upload' variant='link' icon={<AiOutlineUpload />} /></UploadWrapper></Tooltip>
             <Dropdown menu={{ items: DownloadMenu() }}><Button aria-label='download' variant='link' icon={<AiOutlineDownload />} /></Dropdown>
-            <Dropdown menu={{ items: PackageMenu(context.package_name, context.filename, set_dialog) }}><Button aria-label='packages' variant='link' onClick={() => set_dialog("package")} icon={<AiOutlineFolderOpen />}></Button></Dropdown>
+            <Dropdown menu={{ items: PackageMenu(context.package_name, context.filename, set_dialog) }}><Button aria-label='packages' variant='link' icon={<AiOutlineFolderOpen />}></Button></Dropdown>
             <Tooltip title='帮助'><Button aria-label='help' variant='link' onClick={() => set_dialog("help")} icon={<AiOutlineQuestionCircle />} /></Tooltip>
             <Tooltip title='设置'><Button aria-label='settings' variant='link' onClick={() => set_dialog("settings")} icon={<AiOutlineSetting />} /></Tooltip >
             <SettingsModal is_open={dialog == 'settings'} on_close={() => { set_dialog(null) }} />
