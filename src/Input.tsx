@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import { Table, Modal, Input, GetRef, FloatButton, TableColumnsType } from "antd";
+import { Table, Modal, Input, GetRef, FloatButton, TableColumnsType, GetProps, Alert } from "antd";
 
 import { parse, Card, format } from 'cdb-transformer'
 import { transform_card_data } from "./model/card";
@@ -20,12 +20,10 @@ function TextInput() {
     let [diff, set_diff] = useState<any>()
     let [cursor, set_cursor] = useState(0)
     let [category_open, set_category_open] = useState(false)
-    let [search, set_search] = useState("")
     let [text, set_text] = useState(context.text);
     let [force_refresh, fuck] = useState(false);
 
     let main_input = useRef<GetRef<typeof Input>>(null)
-    let search_input = useRef<GetRef<typeof Input>>(null)
 
     const refresh = () => {
         if (!diff) return;
@@ -73,44 +71,67 @@ function TextInput() {
     />
     {/* @ts-ignore */}
     <FloatButton className="button-category" icon={<AiOutlineGroup />} tooltip="卡片目录" onClick={() => { set_category_open(true) }} />
-
-        <Modal title="卡片目录" 
-            open={category_open} 
-            footer={null}
-            focusTriggerAfterClose={false}
-            onClose={() => set_category_open(false)} 
-            onCancel={() => set_category_open(false)}  
-            afterOpenChange={(o) => { if (o) (search_input.current as any)?.select(); }}>
-        <Input ref={search_input} style={{ margin: '10px 0px' }} placeholder='搜索卡片...' onChange={(e) => set_search((e.target as HTMLInputElement)?.value ?? "")} />
-        <Table<Card> 
-            virtual
-            size="small"
-            dataSource={context.cards.filter((c) => c.name.indexOf(search) >= 0 || c.code.toString().indexOf(search) >= 0)} 
-            pagination={false} 
-            showHeader={false}  
-            scroll={{ x: 330, y: 600 }} 
-            columns={CARD_SEARCH_COLUMNS}
-            onRow={(record) => { return {
-                onClick: () => {
-                    set_category_open(false);
-                    let element: HTMLTextAreaElement = (main_input.current as any)?.resizableTextArea?.textArea;
-                    if (element == null || record.range == null) return;
-                    element.value = context.text.substring(0, record.range.start);
-                    let scroll_height = element.scrollHeight;
-                    element.value = context.text;
-                    if (scroll_height > element.offsetHeight)
-                        scroll_height -= element.offsetHeight / 2;
-                    else 
-                        scroll_height = 0
-                    element.focus()
-                    element.setSelectionRange(record.range.start, record.range.end)
-                    element.scrollTop = scroll_height
-                }
-            }}}
-        />
-    </Modal>
+    <CategoryModal open={category_open} onClose={() => set_category_open(false)} onCancel={() => set_category_open(false)} onOk={
+        (record: Card) => {
+            set_category_open(false)
+            let element: HTMLTextAreaElement = (main_input.current as any)?.resizableTextArea?.textArea;
+            if (element == null || record.range == null) return;
+            element.value = context.text.substring(0, record.range.start);
+            let scroll_height = element.scrollHeight;
+            element.value = context.text;
+            if (scroll_height > element.offsetHeight)
+                scroll_height -= element.offsetHeight / 2;
+            else
+                scroll_height = 0
+            element.focus()
+            element.setSelectionRange(record.range.start, record.range.end)
+            element.scrollTop = scroll_height
+        }
+    } />
         
     </div>
+}
+
+function CategoryModal(props: Omit<GetProps<typeof Modal>, 'onOk'> & { onOk: (record: Card) => void }) {
+    let { onOk, ...modal_props } = props
+    let [search, set_search] = useState("")
+    let search_input = useRef<GetRef<typeof Input>>(null)
+    let context = useContext(AppContext)
+    return <Modal title="卡片目录"
+        className="card-category-modal"
+        footer={null}
+        focusTriggerAfterClose={false}
+        afterOpenChange={(o) => { if (o) (search_input.current as any)?.select(); }}
+        {...modal_props}>
+        <Input ref={search_input} style={{ margin: '10px 0px' }} placeholder='搜索卡片...' onChange={(e) => set_search((e.target as HTMLInputElement)?.value ?? "")} />
+        <Table<Card>
+            virtual
+            size="small"
+            rowKey="code"
+            dataSource={context.cards.filter((c) => c.name.indexOf(search) >= 0 || c.code.toString().indexOf(search) >= 0)}
+            pagination={false}
+            showHeader={false}
+            scroll={{ x: 330, y: 600 }}
+            columns={CARD_SEARCH_COLUMNS}
+            rowSelection={{ 
+                columnWidth: 32, 
+                selectedRowKeys: context.selected_cards.map((c) => c.code), 
+                onSelect: (_r, _s, rows) => context.set_context({ ...context, selected_cards: rows }), 
+                onCell: (_) => ({
+                    onClick: (e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                    }
+                })
+            }}
+            onRow={(record) => {
+                return {
+                    onClick: onOk.bind(null, record)
+                }
+            }}
+        />
+        {(context.selected_cards.length > 0) && <Alert showIcon type="warning" message="勾选了卡的场合，没有勾选的卡会在下载时被移除。" />}
+    </Modal>
 }
 
 export default TextInput

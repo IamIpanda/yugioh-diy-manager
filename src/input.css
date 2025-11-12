@@ -16,3 +16,7 @@
     inset-inline-end: unset;
     right: 70px
 }
+
+.card-category-modal .ant-alert {
+    margin-top: 15px
+}

@@ -5,7 +5,7 @@ import { Dispatch, StateUpdater } from "preact/hooks";
 import { BinaryCard, Card, transform_card_data, transform_not_effect_rules } from "./card";
 import localforage from "localforage";
 import { default_values } from "./default";
-import { current_package_name, current_storage, default_text_filename, init_storage } from "./storage";
+import { current_package_name, current_text_filename, get_item_in_text, init_storage, text_filenames } from "./storage";
 
 export type Config = {
     strings: string,
@@ -15,12 +15,14 @@ export type Config = {
 
 export type Context = {
     package_name: string,
+    filenames: string[],
     filename: string,
     text: string,
     card?: Card,
     card_signal: boolean,
     disable_refresh: boolean,
     cards: BinaryCard[],
+    selected_cards: BinaryCard[],
     loading?: string,
     set_context: Dispatch<StateUpdater<Context>>
 }
@@ -35,11 +37,14 @@ export let default_config_value: Config = {
 
 export async function load_context() {
     let package_name = await current_package_name();
-    let filename = await default_text_filename();
-    let text: string = await current_storage.getItem(filename) ?? "空卡片(10000) 通常魔法\n似乎找不到卡片。"
+    let filenames = await text_filenames();
+    let filename = await current_text_filename();
+    let text: string = (await get_item_in_text(filename)) ?? "空卡片(10000) 通常魔法\n似乎找不到卡片。"
     let cards = transformer.parse(text)
-    let card = transform_card_data(cards[0])
-    return { package_name, filename, text, card, cards }
+    let card = cards.length > 0 ? transform_card_data(cards[0]) : undefined
+    if (filename.endsWith(".cdb"))
+        filename = filename.substring(0, filename.length - 4) + ".txt"
+    return { package_name, filenames, filename, text, card, cards }
 }
 
 export async function load_strings(config: Config) {
@@ -51,6 +56,7 @@ export async function load_strings(config: Config) {
 await load_strings(default_config_value)
 export const default_context_value: Context = {
     ...( await load_context() ),
+    selected_cards: [],
     card_signal: false,
     disable_refresh: false,
     set_context: null as any

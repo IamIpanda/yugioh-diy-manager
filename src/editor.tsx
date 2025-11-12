@@ -19,6 +19,7 @@ import { ATTRIBUTE_NAMES, Card, EX_TYPES, LINKER_NAMES, PREFIXES, RACE_NAMES, SU
 import "./editor.css"
 
 import { AiOutlineContainer, AiOutlineDelete, AiOutlineDownload, AiOutlineUpload } from "react-icons/ai";
+import ImgCrop from "antd-img-crop";
 const SUB_TYPE_OPTIONS = new Map(Array.from(TYPE_NAMES).filter((p) => p[0] != 0 && (p[0] & SUB_TYPES) > 0).map((p) => [p[0], { label: p[1], value: p[0] }]))
 
 function transform_map_to_options(map: Map<number, string>) {
@@ -216,7 +217,9 @@ export function Editor() {
                     <Dropdown menu={{
                             items: [{
                                 key: 'upload',
-                                label: <Upload beforeUpload={(file) => { upload_center_image(file, card.code).then(() => refresh_center_image(true)); return Upload.LIST_IGNORE; }}>上传</Upload>,
+                                label: <ImgCrop rotationSlider aspectSlider showReset modalOk="确认" modalCancel="取消">
+                                            <Upload beforeUpload={(file) => { upload_center_image(file, card.code).then(() => refresh_center_image(true)); return Upload.LIST_IGNORE; }}>上传</Upload>
+                                        </ImgCrop>,
                                 icon: <AiOutlineUpload />
                             },
                             {

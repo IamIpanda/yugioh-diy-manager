@@ -41,7 +41,8 @@ const strings = `
 !setname 0x1017 同调士	シンクロン
 !setname 0x2017 同调龙	シンクロ・ドラゴン
 !setname 0x18 云魔物	雲魔物
-!setname 0x19 剑斗兽	剣闘獣
+!setname 0x19 剑斗	グラディアル
+!setname 0x1019 剑斗兽	剣闘獣
 !setname 0x1a 黑蝎	黒蠍
 !setname 0x1b 幻兽	幻獣
 !setname 0x101b 幻兽机	幻獣機
@@ -83,8 +84,11 @@ const strings = `
 !setname 0x3a 遗式	リチュア
 !setname 0x3b 真红眼	レッドアイズ
 !setname 0x3c 爬虫妖	レプティレス
-!setname 0x3d 六武众	六武衆
-!setname 0x103d 影六武众	影六武衆
+#setname 0x3d 六武
+!setname 0x103d 六武众	六武衆
+!setname 0x203d 六武式
+#setname 0x503d 真六武众	真六武衆
+!setname 0x903d 影六武众	影六武衆
 !setname 0x3e 异虫	ワーム
 !setname 0x3f 救世	セイヴァー
 !setname 0x40 被封印	封印されし
@@ -533,7 +537,8 @@ const strings = `
 !setname 0x198 维萨斯	ヴィサス
 !setname 0x199 反击	カウンター
 !setname 0x19a 吠陀	ヴェーダ
-!setname 0x19b 迪亚贝尔斯塔尔	ディアベルスター
+!setname 0x19b 迪亚贝尔	ディアベル
+!setname 0x119b 迪亚贝尔斯塔尔	ディアベルスター
 !setname 0x19c 蛇眼	スネークアイ
 !setname 0x19d 荷鲁斯	ホルス
 !setname 0x119d 荷鲁斯之黑炎龙	ホルスの黒炎竜
@@ -543,7 +548,7 @@ const strings = `
 !setname 0x1a1 莫忘	メメント
 !setname 0x1a2 百夫长骑士	センチュリオン
 !setname 0x1a3 异响鸣	ヴァルモニカ
-!setname 0x1a4 蒂斯蒂娜	Tistina
+!setname 0x1a4 提斯蒂娜	ティスティナ
 !setname 0x1a5 于贝尔	ユベル
 !setname 0x1a6 肃声	粛声
 !setname 0x1a7 白斗气	ホワイト・オーラ
@@ -551,14 +556,34 @@ const strings = `
 !setname 0x1a9 灿幻	燦幻
 !setname 0x1aa 天杯龙	天盃龍
 !setname 0x1ab 蕾祸	蕾禍
-!setname 0x1ac 飞龙炎	Salamandra
-!setname 0x1ad 灰尽	Ashened
+!setname 0x1ac 飞龙炎	サラマンドラ
+!setname 0x1ad 灰灭	灰滅
 !setname 0x1ae 千年	千年/ミレニアム
 !setname 0x1af 艾格佐德	エグゾード
 !setname 0x1b0 刻魔	デモンスミス
 !setname 0x1b1 白森林	白き森
 !setname 0x1b2 欢聚友伴	マルチャミー
 !setname 0x1b3 徽记	エンブレーマ
+!setname 0x1b4 时空	タキオン
+!setname 0x1b5 蓝泪	青い涙
+!setname 0x1b6 石版
+!setname 0x1b7 拟箱掳尸	Mimighoul
+!setname 0x1b8 鲨	シャーク
+!setname 0x11b8 鲨龙兽	シャーク・ドレイク
+!setname 0x1b9 原石
+!setname 0x1ba 金属化	メタル化
+!setname 0x1bb 魔瞳	モルガナイト
+!setname 0x1bc 蓟花	アザミナ
+!setname 0x1bd 祝台
+!setname 0x1be 雷火沸动	ライゼオル
+!setname 0x1bf 码丽丝	M∀LICE
+!setname 0x1c0 龙华	竜華
+!setname 0x1c1 阿尔戈☆群星	ARG☆S
+!setname 0x1c2 喷水引擎	アクア・ジェット
+!setname 0x1c3 御剑	Mitsurugi
+!setname 0x1c4 征龙	征竜
+!setname 0x1c5 再世	再世
+!setname 0x1c6 统王	ドミナス
 `.trim()
 
 const luas = {
@@ -713,7 +738,7 @@ end
 
 export const DEFAULT_PACKAGE_NAME = 'MyDIY'
 export let default_values = {
-    "packages": [DEFAULT_PACKAGE_NAME],
+	"packages": { [DEFAULT_PACKAGE_NAME]: { variable: { last_text_filename: DEFAULT_PACKAGE_NAME + ".txt", data_version: 1 } }},
     "last_package": DEFAULT_PACKAGE_NAME,
     "config": {
         "not_effect_rules": "^[-—].*\n^.{2,4}[:：].*\n^\\(.*\\)$\n^（.*）$\n^.*DoItYourself.*$",
@@ -722,7 +747,7 @@ export let default_values = {
 }
 
 export let mydiy_values = {
-    [DEFAULT_PACKAGE_NAME + ".cdb"]: `
+    [DEFAULT_PACKAGE_NAME + ".txt"]: `
 青眼白龙(89631141=>89631139) 光 8星 龙/通常 3000 2500
 以高攻击力著称的传说之龙。任何对手都能粉碎，其破坏力不可估量。
 
@@ -739,7 +764,6 @@ export let mydiy_values = {
 效果分类：攻守变化、特殊召唤、属性相关、效果无效
 提示文本：属性当作暗、发动无效、墓地特殊召唤
 `.trim(),
-    "name": DEFAULT_PACKAGE_NAME, 
     "script/c96823189.lua": luas[96823189],
     "script/c19652159.lua": luas[19652159],
     "pico/89631141.jpg": import.meta.env.BASE_URL + "examples/89631141.jpg",
