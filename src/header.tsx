@@ -149,6 +149,7 @@ type DavModalForm = {
 
 }
 function OpenDavModal(props: Omit<GetProps<typeof Modal>, 'onOk'> & { onOk: (name: string, config: { driver: string, url: string, options: WebDAVClientOptions }) => void}) {
+    let context = useContext(AppContext)
     let { onOk, ...rest_props } = props;
     let [loading, set_loading] = useState<boolean>(false)
     let [last_eror, set_last_error] = useState<string | null>(null)
@@ -194,7 +195,12 @@ function OpenDavModal(props: Omit<GetProps<typeof Modal>, 'onOk'> & { onOk: (nam
         url = url + data.basepath
         let names = (data.basepath ?? data.url).split("/")
         let name = names[names.length - 1]
-        onOk(name, { driver: 'webdav', url, options: { username: options.username, password: options.password }})
+        if (name == DEFAULT_PACKAGE_NAME)
+            name = Math.random().toString(36).slice(2)
+        let obj = { driver: 'webdav', url, options: { username: options.username, password: options.password } }
+        await set_package(name, obj)
+        context.set_context({ ...context, ...(await load_context()) });
+        props.onOk?.call(null, name, obj)
     }
     const on_value_change = (changed: Partial<DavModalForm>) => {
         if (changed.basepath != null) return
@@ -520,7 +526,7 @@ export function Header() {
             <HelpModal open={dialog == 'help'} width={1000} height={800} onCancel={() => { set_dialog(null); localforage.setItem("seen_help", CURRENT_VERSION)}} />
             <NewModal open={dialog == 'new'} onCancel={close_dialog} onOk={(n) => new_package(context, n).then(close_dialog)} />
             <FileModal open={dialog == 'files'} onCancel={close_dialog} />
-            <OpenDavModal open={dialog == 'open_dav'} onCancel={close_dialog} onOk={(n, o) => set_package(n, o).then(close_dialog)} />
+            <OpenDavModal open={dialog == 'open_dav'} onCancel={close_dialog} onOk={close_dialog} />
         </Space>
     </Flex>
 }

@@ -17,7 +17,9 @@ class WebDavClientWrapper {
         if (key.startsWith("/")) 
             key = "/" + key
         let format: 'text' | 'binary' = 'text'
-        if (key.endsWith("@binary")) {
+        if (key.endsWith(".jpg"))
+            format = 'binary'
+        else if (key.endsWith("@binary")) {
             key = key.substring(0, key.length - "@binary".length)
             format = 'binary'
         }
@@ -26,6 +28,7 @@ class WebDavClientWrapper {
     setItem<T>(key: string, value: T, _callback?: (err: any, value: T) => void): Promise<T> {
         if (key.startsWith("/"))
             key = "/" + key
+        console.log(value)
         return this.client.putFileContents(key, value as string).then(() => value)
     }
     removeItem(key: string, _callback?: (err: any) => void): Promise<void> {

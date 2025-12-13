@@ -26,6 +26,6 @@ export default defineConfig({
     PACKAGE_VERSION: JSON.stringify(VERSION)
   },
   optimizeDeps: {
-    exclude: ["cdb-transformer-wasm", "@sqlite.org/sqlite-wasm"]
+    exclude: ["@sqlite.org/sqlite-wasm"]
   },
 })

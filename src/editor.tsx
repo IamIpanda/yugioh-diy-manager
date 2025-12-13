@@ -157,7 +157,7 @@ export function Editor() {
             <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12} className="full-width card-image-container" style={use_full_image ? { "textAlign": 'center' } : undefined}>
             {
                 use_full_image ? <img class="card-image" src={full_image ?? ""} />
-                : <CardImage id="generated-image" card={card} image={center_image} lang={Data.Language.ZH_CN} asset_prefix={import.meta.env.BASE_URL+"assets"} style={{ height: '100%', margin: 'auto' }} onClick={() => set_dialog('image') } />
+                : <CardImage id="generated-image" card={card} image={center_image} lang={Data.Language.ZH_CN} asset_prefix={import.meta.env.BASE_URL+"assets"} style={{ height: '100%', margin: 'auto' }} onClick={() => set_dialog('image') }  />
             }
             </Col>
             <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12} className='panel'>
@@ -346,7 +346,7 @@ async function generate_image(code: number) {
     return new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
             if (blob == null) { reject(); return }
-            current_storage.setItem(`pics/${code}.jpg`, blob.arrayBuffer()).then(() => resolve(undefined))
+            blob.arrayBuffer().then(buffer => current_storage.setItem(`pics/${code}.jpg`, buffer)).then(() => resolve(undefined))
         }, "image/jpeg", 0.8)
     })
 }
