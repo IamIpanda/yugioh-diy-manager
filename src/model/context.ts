@@ -47,21 +47,36 @@ export async function load_context() {
     return { package_name, filenames, filename, text, card, cards }
 }
 
+export async function reload_context(context: Context) {
+    context.set_context({...context, loading: `正在载入 ${context.package_name}...`})
+    try {
+        context.set_context({...context, ...(await load_context()), loading: undefined})
+    }
+    catch(e) {
+        console.error(e)
+    }
+}
+
 export async function load_strings(config: Config) {
     let file = await localforage.getItem("strings.conf") as string | null
     if (file == null) file = ""
     transformer.set_string_conf(config.strings + "\n" + file)
 }
-
 await load_strings(default_config_value)
+
 export const default_context_value: Context = {
-    ...( await load_context() ),
+    // This part shall be loaded by load_context
+    package_name: "Loading",
+    filenames: [],
+    filename: "",
+    text: "",
+    cards: [],
+    
     selected_cards: [],
     card_signal: false,
     disable_refresh: false,
     set_context: null as any
 }
-
 
 export const AppContext = createContext(default_context_value)
 export const ConfigContext = createContext(default_config_value)

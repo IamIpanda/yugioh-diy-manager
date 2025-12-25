@@ -1,8 +1,8 @@
 
 import { cloneElement } from "preact";
-import { useContext, useEffect, useState } from "preact/hooks";
+import { useContext, useEffect, useState, useRef } from "preact/hooks";
 import { createContext, HTMLProps, ReactElement } from "preact/compat";
-import { Select, InputNumber, Input, Space, SelectProps, Row, Col, GetProps, Modal, Button, Upload, Dropdown } from 'antd'
+import { Select, InputNumber, Input, Space, SelectProps, Row, Col, GetProps, Modal, Button, Upload, Dropdown, Spin } from 'antd'
 
 import AceEditor from "react-ace";
 import "ace-builds/src-noconflict/mode-lua";
@@ -44,6 +44,7 @@ function LinkMarkerEditor(props: { onChange?: (value: number) => void } & Omit<H
         [Data.Linkmarker.Left,       16,                     Data.Linkmarker.Right],
         [Data.Linkmarker.BottomLeft, Data.Linkmarker.Bottom, Data.Linkmarker.BottomRight]
     ]
+    // @ts-ignore
     return <div class="link-marker-editor full-width" {...p}>
         <Space direction="vertical">
             {keys.map((group) => <Space>{group.map((marker) => 
@@ -81,6 +82,7 @@ function FormItem(props: { name: keyof Card, children: ReactElement } & HTMLProp
 
 function Form(props: { formValue: any, onValuesChange?: () => void } & HTMLProps<HTMLDivElement>) {
     return <FormContext.Provider value={{ value: props.formValue, hooks: { onValuesChange: props.onValuesChange } }}>
+        {/* @ts-ignore */}
         <div {...props}>{props.children}</div>
     </FormContext.Provider>
 }
@@ -94,6 +96,9 @@ export function Editor() {
     let [set_names, set_set_names] = useState<Map<number, string>>(new Map())
     let [dialog, set_dialog] = useState<'image' | 'texts' | 'script' | null>(null)
     let [editing_text, set_editing_text] = useState('')
+
+    let [loading_image, set_loading_image] = useState<number | null>(null)
+    const loading_image_ref = useRef<number | null>(loading_image)
     let [full_image, set_full_image] = useState<string | null>(null)
     let [center_image, set_center_image] = useState<string | null>(null)
     let [use_full_image, set_use_full_image] = useState(false)
@@ -106,6 +111,8 @@ export function Editor() {
     let send_card_signal = () => { context.set_context({ ...context, card_signal: !context.card_signal }) }
     let silent_triggers = { onFocus: () => { context.disable_refresh = true }, onBlur: () => { context.disable_refresh = false; send_card_signal() } }
     let is_ex_monster = (card: Card) => card.type & Data.Type.Monster && card.type & EX_TYPES
+
+    const enable_debug = false
     
     useEffect(() => {
         transformer.set_string_conf(config.strings)
@@ -114,35 +121,49 @@ export function Editor() {
         set_set_names(_set_names)
     }, [config.strings])
 
-    let refresh_image = (update: boolean) => current_storage.getItem(`pics/${card.code}.jpg`).then((a) => {
+    let refresh_image = async (change_to_use_full_image: boolean) => {
+        let loading_code = context.card!.code
+        enable_debug && console.log("Going to load full image of " + loading_code)
+        let a = await current_storage.getItem(`pics/${card.code}.jpg`)
+        enable_debug && console.log("loaded full image of card " + loading_code + ", now we're loading " + loading_image_ref.current)
+        if (loading_image_ref.current != loading_code) return
         if (a == null) {
             set_full_image(null)
-            if(update) set_use_full_image(false)
+            if (change_to_use_full_image) set_use_full_image(false)
+            if (use_full_image) set_loading_image(null)
         }
         else {
-            if (typeof a == 'string')
-                set_center_image(a)
-            else
-                set_full_image("data:image/jpg;base64, " + btoa(Array.from(new Uint8Array(a as ArrayBuffer)).map(b => String.fromCharCode(b)).join('')))
-            if(update) set_use_full_image(true)
+            if (typeof a == 'string') set_center_image(a)
+            else set_full_image("data:image/jpg;base64, " + btoa(Array.from(new Uint8Array(a as ArrayBuffer)).map(b => String.fromCharCode(b)).join('')))
+            if (change_to_use_full_image) set_use_full_image(true)
+            if (change_to_use_full_image || use_full_image) set_loading_image(null)
         }
-    })
+    }
 
-    let refresh_center_image = (update: boolean) => current_storage.getItem(`pico/${card.code}.jpg`).then((a) => {
+    let refresh_center_image = async (change_to_use_center_image: boolean) => {
+        let loading_code = context.card!.code
+        enable_debug && console.log("Going to load center image of " + loading_code)
+        let a = await current_storage.getItem(`pico/${card.code}.jpg`)
+        enable_debug && console.log("loaded center image of card " + loading_code + ", now we're loading " + loading_image_ref.current)
+        if (loading_image_ref.current != loading_code) return 
         if (a == null) {
             set_center_image(null)
-            if (update) set_use_full_image(full_image != null)
+            if (change_to_use_center_image) set_use_full_image(full_image != null)
+            if (!use_full_image) set_loading_image(null)
         }
         else {
-            if (typeof a == 'string')
-                set_center_image(a)
-            else
-                set_center_image("data:image/jpg;base64, " + btoa(Array.from(new Uint8Array(a as ArrayBuffer)).map(b => String.fromCharCode(b)).join('')))
-            if (update) set_use_full_image(false)
+            if (typeof a == 'string') set_center_image(a)
+            else set_center_image("data:image/jpg;base64, " + btoa(Array.from(new Uint8Array(a as ArrayBuffer)).map(b => String.fromCharCode(b)).join('')))
+            if (change_to_use_center_image) set_use_full_image(false)
+            if (change_to_use_center_image || !use_full_image) set_loading_image(null)
         }
-    })
-
+    }
+    
     useEffect(() => { 
+        if (context.card == null) return
+        set_loading_image(card.code)
+        loading_image_ref.current = card.code
+        enable_debug && console.log("Going to load card image of " + card.code)
         refresh_image(true)
         refresh_center_image(false)
     }, [context.card?.range?.start, context.package_name]) // start seems to be immortal value.
@@ -151,14 +172,25 @@ export function Editor() {
         if (document.fonts.status == 'loading')
             wait_font_loading(context)
     }, [])
-
+    
     return <Form className="editor" formValue={card} onValuesChange={send_card_signal}>
-        <Row span={12} className="panel-container">
+        <Row gutter={12} className="panel-container">
             <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12} className="full-width card-image-container" style={use_full_image ? { "textAlign": 'center' } : undefined}>
-            {
-                use_full_image ? <img class="card-image" src={full_image ?? ""} />
-                : <CardImage id="generated-image" card={card} image={center_image} lang={Data.Language.ZH_CN} asset_prefix={import.meta.env.BASE_URL+"assets"} style={{ height: '100%', margin: 'auto' }} onClick={() => set_dialog('image') }  />
-            }
+                <Spin wrapperClassName="card-image-wrapper" spinning={loading_image != null} delay={200}>
+                    {
+                        use_full_image 
+                        ? <img class="card-image" src={full_image ?? ""} />
+                        : <CardImage 
+                            id="generated-image" 
+                            card={card} 
+                            image={center_image} 
+                            lang={Data.Language.ZH_CN} 
+                            asset_prefix={import.meta.env.BASE_URL+"assets"} 
+                            style={{ height: '100%', margin: 'auto' }} 
+                            onClick={() => set_dialog('image') }
+                        />
+                    }
+                </Spin>
             </Col>
             <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12} className='panel'>
                 <Line>
@@ -249,7 +281,7 @@ export function Editor() {
             </Col>
         </Row>
         {is_pendulum ? 
-            <Row span={6} style={{ paddingTop: "20px", height: '25%', width: '100%' }}>
+            <Row gutter={6} style={{ paddingTop: "20px", height: '25%', width: '100%' }}>
                 <Space.Compact style={{ width: '100%', height: '100%', paddingBottom: '20px' }}>
                     <FormItem name="left_scale"><InputNumber className="pendulum-scale pendulum-scale-left" controls={false} addonBefore="←"></InputNumber></FormItem>
                     <FormItem name="pendulum_text"><Input.TextArea className="pendulum-text" {...silent_triggers} /></FormItem>
@@ -257,7 +289,7 @@ export function Editor() {
                 </Space.Compact>
             </Row>
         : null}
-        <Row span={is_pendulum ? 6 : 12} className={`desc-container`} style={{ paddingTop: "20px", height: is_pendulum ? '25%' : '50%', width: '100%' }}>
+        <Row gutter={is_pendulum ? 6 : 12} className={`desc-container`} style={{ paddingTop: "20px", height: is_pendulum ? '25%' : '50%', width: '100%' }}>
             <FormItem name='desc' className="description"><Input.TextArea {...silent_triggers} /></FormItem>
         </Row>
         <Modal open={dialog == 'image'} onCancel={() => set_dialog(null)} footer={null} width={1434} height={2071} closable={false}>

@@ -28,7 +28,6 @@ class WebDavClientWrapper {
     setItem<T>(key: string, value: T, _callback?: (err: any, value: T) => void): Promise<T> {
         if (key.startsWith("/"))
             key = "/" + key
-        console.log(value)
         return this.client.putFileContents(key, value as string).then(() => value)
     }
     removeItem(key: string, _callback?: (err: any) => void): Promise<void> {

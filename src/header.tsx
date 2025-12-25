@@ -10,7 +10,7 @@ import { format } from 'cdb-transformer';
 import localforage from 'localforage';
 import { DEFAULT_PACKAGE_NAME } from './model/default';
 import { generate_from_text, transform_not_effect_rules } from './model/card';
-import { AppContext, ConfigContext, Context, load_strings, load_context } from './model/context'
+import { AppContext, ConfigContext, Context, load_strings, load_context, reload_context } from './model/context'
 import { accept_database, accept_package, current_package_name, current_storage, delete_package, dump, generate_package, generate_package_name_from_filename, load_default_package, package_list, set_package, set_text_filename } from './model/storage';
 
 import { html as Doc } from './assets/help.md'
@@ -97,9 +97,9 @@ function PackagesModal(props: GetProps<typeof Modal>) {
     let update_packages = () => package_list().then((r) => set_packages(Object.keys(r)))
     useEffect(() => { update_packages() }, [props.open])
     let call = async (package_name: string) => {
-        await set_package(package_name);
-        context.set_context({ ...context, ...(await load_context()) });
+        await set_package(package_name)
         props.onCancel?.call(null, null as any)
+        await reload_context(context)
     }
     return <Modal title="卡包" footer={null} closable={false} {...props} destroyOnClose>
         <Table
@@ -199,8 +199,8 @@ function OpenDavModal(props: Omit<GetProps<typeof Modal>, 'onOk'> & { onOk: (nam
             name = Math.random().toString(36).slice(2)
         let obj = { driver: 'webdav', url, options: { username: options.username, password: options.password } }
         await set_package(name, obj)
-        context.set_context({ ...context, ...(await load_context()) });
         props.onOk?.call(null, name, obj)
+        await reload_context(context);
     }
     const on_value_change = (changed: Partial<DavModalForm>) => {
         if (changed.basepath != null) return
@@ -436,7 +436,7 @@ function FilenameMenu(context: Context) {
         let filename = key
         set_text_filename(key)
         context.filename = filename
-        context.set_context({ ...context, ...(await load_context()) });
+        reload_context(context)
     }
     let filename_set: Record<string, string> = {}
     for (let filename of context.filenames)
