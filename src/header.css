@@ -27,6 +27,14 @@
     border: none;
 }
 
+.modal-settings .modal-settings-inputs > div {
+    width: 50%;
+}
+
+.modal-settings textarea {
+    height: 700px;
+}
+
 .package-modal .ant-modal-header {
     padding-bottom: 10px;
 }

@@ -6,10 +6,13 @@ import { BinaryCard, Card, transform_card_data, transform_not_effect_rules } fro
 import localforage from "localforage";
 import { default_values } from "./default";
 import { current_package_name, current_text_filename, get_item_in_text, init_storage, text_filenames } from "./storage";
+import { build_trie, TrieNode } from "./furigana";
 
 export type Config = {
+    auto_remove_newline: boolean,
     strings: string,
     not_effect_rules: RegExp[],
+    ofurus: TrieNode,
     set_config: Dispatch<StateUpdater<Config>>
 }
 
@@ -31,8 +34,11 @@ await init_storage()
 let plain_default_config_value: typeof default_values.config = (await localforage.getItem('config')) ?? default_values.config;
 export let default_config_value: Config = {
     ...plain_default_config_value,
+    auto_remove_newline: plain_default_config_value.auto_remove_newline ?? default_values.config.auto_remove_newline,
     not_effect_rules: transform_not_effect_rules(plain_default_config_value.not_effect_rules),
-    set_config: null as any
+    ofurus: build_trie(typeof plain_default_config_value.ofurus === 'string' ? plain_default_config_value.ofurus : default_values.config.ofurus),
+    set_config: null as any,
+    
 }
 
 export async function load_context() {

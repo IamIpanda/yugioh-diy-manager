@@ -1,5 +1,6 @@
 import { Dispatch, StateUpdater, useContext, useEffect, useRef, useState } from 'preact/hooks'
 import { Flex, Modal, Upload, Tooltip, Button, Typography, Space, Input, GetProps, Dropdown, Table, Switch, InputRef, TreeDataNode, Tree, Form, Spin, Alert, Checkbox } from 'antd';
+import { useForm } from 'antd/es/form/Form';
 import { createClient, FileStat, WebDAVClientOptions } from 'webdav'
 import { AiOutlineDownload, AiOutlineQuestionCircle, AiOutlineSetting, AiOutlineUpload, AiOutlineFolderOpen, AiOutlineDatabase, AiOutlineDelete, AiOutlineRedo, AiFillCheckCircle, AiOutlineUnorderedList, AiOutlineFolderAdd, AiOutlineFileText, AiOutlineCloudServer } from "react-icons/ai";
 import { RiArchiveStackLine, RiDownloadCloud2Line } from "react-icons/ri";
@@ -8,16 +9,17 @@ import { VscDebug } from 'react-icons/vsc';
 import * as ini from 'ini'
 import { format } from 'cdb-transformer';
 import localforage from 'localforage';
-import { DEFAULT_PACKAGE_NAME } from './model/default';
+import { build_trie } from './model/furigana';
+import { DEFAULT_PACKAGE_NAME, default_values } from './model/default';
 import { generate_from_text, transform_not_effect_rules } from './model/card';
 import { AppContext, ConfigContext, Context, load_strings, load_context, reload_context } from './model/context'
 import { accept_database, accept_package, current_package_name, current_storage, delete_package, dump, generate_package, generate_package_name_from_filename, load_default_package, package_list, set_package, set_text_filename } from './model/storage';
 
 import { html as Doc } from './assets/help.md'
-import "./header.css"
-import { useForm } from 'antd/es/form/Form';
 
-const CURRENT_VERSION = 1;
+import "./header.css"
+
+const CURRENT_VERSION = 2;
 let seen_help = await localforage.getItem("seen_help") as number ?? 0
 
 function HeightSpace(prop: { height: string }) {
@@ -28,16 +30,27 @@ function SettingsModal(prop: {is_open: boolean, on_close: () => void}) {
 const config = useContext(ConfigContext);
     const [use_package, set_use_package] = useState(false)
     const [internal_strings, set_internal_strings] = useState(config.strings);
+    const [ofurus, set_ofurus] = useState("")
     const [package_strings, set_package_strings] = useState("")
     const [loading_internal_strings, set_loading_internal_strings] = useState(false)
     const [not_effect_rules, set_not_effect_rules] = useState("")
+    const [auto_remove_newline, set_auto_remove_newline] = useState(config.auto_remove_newline)
     useEffect(() => {
-        localforage.getItem("config").then((c) => set_not_effect_rules((c as any ?? {}).not_effect_rules))
+        localforage.getItem("config").then((c) => {
+            set_not_effect_rules((c as any ?? {}).not_effect_rules)
+            set_ofurus((c as any ?? {}).ofurus ?? default_values.config.ofurus)
+        })
         current_storage.getItem("strings.conf").then((c) => set_package_strings(c as string ?? ""), () => set_package_strings(""))
     }, [prop.is_open])
     const on_close = async () => {
-        config.set_config({ ...config, strings: internal_strings, not_effect_rules: transform_not_effect_rules(not_effect_rules)})
-        let save_config: any = { ...config, strings: internal_strings, not_effect_rules }
+        config.set_config({ 
+            ...config, 
+            auto_remove_newline,
+            strings: internal_strings, 
+            not_effect_rules: transform_not_effect_rules(not_effect_rules),
+            ofurus: build_trie(ofurus)
+        })
+        let save_config: any = { ...config, strings: internal_strings, ofurus, not_effect_rules, auto_remove_newline }
         delete save_config.set_config
         await localforage.setItem("config", save_config)
         try {
@@ -62,24 +75,36 @@ const config = useContext(ConfigContext);
         }
         set_loading_internal_strings(false)
     }
-    return <Modal open={prop.is_open} title="设置" className='modal-settings' onCancel={on_close} footer={null}>
-                <Flex justify='space-between'>
-                    <Tooltip title="字段名列表"><Typography.Text>Strings.conf:</Typography.Text></Tooltip>
-                    <Flex gap="small">
-                        {!use_package && <Tooltip title="从远端下载最新字段名列表"><Button icon={<RiDownloadCloud2Line />} variant='link' size='small' onClick={on_update} disabled={loading_internal_strings} /></Tooltip>}
-                        <Switch checkedChildren="卡包" unCheckedChildren="自带" value={use_package} onChange={(c) => set_use_package(c)} />
+    return <Modal open={prop.is_open} title="设置" className='modal-settings' onCancel={on_close} footer={null} width={800}>
+            <HeightSpace height='5px' />
+            <Checkbox checked={auto_remove_newline} onChange={(e) => set_auto_remove_newline(e.target.checked)}>绘制卡图时，自动移除效果中序号前的回车符</Checkbox>
+            <HeightSpace height='20px' />
+            <Flex className='modal-settings-inputs' gap={20} justify='space-between'>
+                <Flex vertical>
+                    <Flex justify='space-between'>
+                        <Tooltip title="字段名列表"><Typography.Text>Strings.conf:</Typography.Text></Tooltip>
+                        <Flex gap="small">
+                            {!use_package && <Tooltip title="从远端下载最新字段名列表"><Button icon={<RiDownloadCloud2Line />} variant='link' size='small' onClick={on_update} disabled={loading_internal_strings} /></Tooltip>}
+                            <Switch checkedChildren="卡包" unCheckedChildren="自带" value={use_package} onChange={(c) => set_use_package(c)} />
+                        </Flex>
                     </Flex>
+                    <HeightSpace height='5px' />
+                    <Input.TextArea value={use_package ? package_strings : internal_strings} disabled={loading_internal_strings} onChange={(e) => {
+                        if (use_package) set_package_strings(e.currentTarget.value)
+                        else set_internal_strings(e.currentTarget.value)
+                    }} />
                 </Flex>
-                <HeightSpace height='5px' />
-                <Input.TextArea style={{ height: "500px" }} value={use_package ? package_strings : internal_strings} disabled={loading_internal_strings} onChange={(e) => {
-                    if (use_package) set_package_strings(e.currentTarget.value)
-                    else set_internal_strings(e.currentTarget.value)
-                }} />
-                <HeightSpace height='20px' />
-                <Tooltip title="满足匹配条件的行，不会被计入效果。"><Typography.Text>效果排除行:</Typography.Text></Tooltip>
-                <HeightSpace height='5px' />
-                <Input.TextArea style={{ height: '200px' }} value={not_effect_rules} onChange={(e) => set_not_effect_rules(e.currentTarget.value)} />
-            </Modal>
+                <Flex vertical>
+                    <Tooltip title="自动注音的参考表"><Typography.Text>自动注音规则:</Typography.Text></Tooltip>
+                    <HeightSpace height='5px' />
+                    <Input.TextArea value={ofurus} onChange={(e) => set_ofurus(e.currentTarget.value)} />
+                </Flex>
+            </Flex>
+            <HeightSpace height='20px' />
+            <Tooltip title="满足匹配条件的行，不会被计入效果。"><Typography.Text>效果排除行:</Typography.Text></Tooltip>
+            <HeightSpace height='5px' />
+            <Input.TextArea style={{ height: '200px' }} value={not_effect_rules} onChange={(e) => set_not_effect_rules(e.currentTarget.value)} />
+        </Modal>
 }
 
 function PackageOperator(props: { package_name: string, allow_delete?: boolean, allow_reset?: boolean, callback?: (package_name: string) => void }) {

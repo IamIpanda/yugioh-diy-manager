@@ -1,12 +1,13 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import { Table, Modal, Input, GetRef, FloatButton, TableColumnsType, GetProps, Alert } from "antd";
+import { Table, Modal, Input, GetRef, FloatButton, TableColumnsType, GetProps, Alert, Button } from "antd";
+import { AiFillSound, AiOutlineGroup } from "react-icons/ai";
 
 import { parse, Card, format } from 'cdb-transformer'
 import { transform_card_data } from "./model/card";
 import { AppContext, ConfigContext } from "./model/context";
+import { ofuru } from "./model/furigana";
 
 import "./input.css"
-import { AiOutlineGroup } from "react-icons/ai";
 
 const CARD_SEARCH_COLUMNS: TableColumnsType<Card> = [
     { title: '编号', dataIndex: 'code', key: 'code', width: 100 },
@@ -19,7 +20,7 @@ function TextInput() {
 
     let [diff, set_diff] = useState<any>()
     let [cursor, set_cursor] = useState(0)
-    let [category_open, set_category_open] = useState(false)
+    let [dialog, set_dialog] = useState<'category' | 'ofuru' | null>(null)
     let [text, set_text] = useState(context.text);
     let [force_refresh, fuck] = useState(false);
 
@@ -70,10 +71,13 @@ function TextInput() {
         style={{ height: '100%' }}
     />
     {/* @ts-ignore */}
-    <FloatButton className="button-category" icon={<AiOutlineGroup />} tooltip="卡片目录" onClick={() => { set_category_open(true) }} />
-    <CategoryModal open={category_open} onClose={() => set_category_open(false)} onCancel={() => set_category_open(false)} onOk={
+    <FloatButton className="button-category" icon={<AiOutlineGroup />} tooltip="卡片目录" onClick={() => { set_dialog('category') }} />
+    {/* @ts-ignore */}
+    {context.card && context.card?.metas?.indexOf("日语") >= 0 && <FloatButton className="button-category-2" icon={<AiFillSound/>} tooltip="注音" onClick={() => { set_dialog('ofuru') }} />}
+    
+    <CategoryModal open={dialog === 'category'} onCancel={() => set_dialog(null)} onOk={
         (record: Card) => {
-            set_category_open(false)
+            set_dialog(null)
             let element: HTMLTextAreaElement = (main_input.current as any)?.resizableTextArea?.textArea;
             if (element == null || record.range == null) return;
             element.value = context.text.substring(0, record.range.start);
@@ -88,6 +92,7 @@ function TextInput() {
             element.scrollTop = scroll_height
         }
     } />
+    <OfuruModal open={dialog === 'ofuru'} onCancel={() => set_dialog(null)} />
         
     </div>
 }
@@ -131,6 +136,22 @@ function CategoryModal(props: Omit<GetProps<typeof Modal>, 'onOk'> & { onOk: (re
             }}
         />
         {(context.selected_cards.length > 0) && <Alert showIcon type="warning" message="勾选了卡的场合，没有勾选的卡会在下载时被移除。" />}
+    </Modal>
+}
+
+function OfuruModal(props: GetProps<typeof Modal>) {
+    let config = useContext(ConfigContext)
+    let [content, set_content] = useState("")
+    return <Modal
+        title="自动注音" 
+        footer={<>
+            <Button onClick={() =>set_content(ofuru(content, config.ofurus))}>注音</Button>
+            <Button onClick={(e) => props.onCancel?.call(null, e as any)}>关闭</Button>
+        </>} 
+        className="card-ofuru-modal"
+        closable={false}
+        {...props}>
+        <Input.TextArea className="ofuru-input" value={content} onChange={(e) => set_content((e.target as HTMLTextAreaElement)?.value)} />
     </Modal>
 }
 

@@ -16,7 +16,16 @@
     inset-inline-end: unset;
     right: 70px
 }
+#input button.ant-float-btn.button-category-2 {
+    position: absolute;
+    inset-inline-end: unset;
+    right: 120px
+}
 
 .card-category-modal .ant-alert {
     margin-top: 15px
+}
+
+.ant-input.ofuru-input {
+    height: 400px;
 }

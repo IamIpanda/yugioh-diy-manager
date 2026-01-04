@@ -8,18 +8,19 @@ import AceEditor from "react-ace";
 import "ace-builds/src-noconflict/mode-lua";
 import "ace-builds/src-noconflict/theme-github";
 import html2canvas from "html2canvas";
+import ImgCrop from "antd-img-crop";
 
 import { Card as CardImage, Data } from "yugioh-card-react";
 import * as transformer from "cdb-transformer";
 
+import { ofuru } from "./model/furigana";
 import { current_storage } from "./model/storage";
 import { AppContext, ConfigContext, Context } from "./model/context";
 import { ATTRIBUTE_NAMES, Card, EX_TYPES, LINKER_NAMES, PREFIXES, RACE_NAMES, SUB_TYPES, TYPE_NAMES } from "./model/card";
 
+import { AiOutlineContainer, AiOutlineDelete, AiOutlineDownload, AiOutlineUpload } from "react-icons/ai";
 import "./editor.css"
 
-import { AiOutlineContainer, AiOutlineDelete, AiOutlineDownload, AiOutlineUpload } from "react-icons/ai";
-import ImgCrop from "antd-img-crop";
 const SUB_TYPE_OPTIONS = new Map(Array.from(TYPE_NAMES).filter((p) => p[0] != 0 && (p[0] & SUB_TYPES) > 0).map((p) => [p[0], { label: p[1], value: p[0] }]))
 
 function transform_map_to_options(map: Map<number, string>) {
@@ -94,7 +95,7 @@ export function Editor() {
     if (card == null) return <></>;
     
     let [set_names, set_set_names] = useState<Map<number, string>>(new Map())
-    let [dialog, set_dialog] = useState<'image' | 'texts' | 'script' | null>(null)
+    let [dialog, set_dialog] = useState<'image' | 'texts' | 'script' | 'ofuru' | null>(null)
     let [editing_text, set_editing_text] = useState('')
 
     let [loading_image, set_loading_image] = useState<number | null>(null)
@@ -172,22 +173,79 @@ export function Editor() {
         if (document.fonts.status == 'loading')
             wait_font_loading(context)
     }, [])
-    
+
+    let card_image_props: {
+        full_frame: boolean;
+        lang: Data.Language;
+        desc_scale: number | undefined;
+        pdesc_scale: number | undefined;
+        card?: Card
+    } = {
+        full_frame: false,
+        lang: Data.Language.ZH_CN,
+        desc_scale: undefined,
+        pdesc_scale: undefined,
+    }
+    let card_override: Partial<Card> = {}
+    let enable_card_proxy = () => {
+        if (card_image_props.card != null) return;
+        card_image_props.card = new Proxy(card, {
+        get(target, prop, receiver) {
+            if (prop in card_override) return (card_override as any)[prop];
+            return Reflect.get(target, prop, receiver);
+        }
+    })}
+    let remove_newline = config.auto_remove_newline;
+    if (card.metas)
+        for (let meta of card.metas as string[])
+            if (meta === "全框卡") card_image_props.full_frame = true;
+            else if (meta === "日语" || meta === "日文") card_image_props.lang = Data.Language.JP;
+            else if (meta === "韩语" || meta === "韩文") card_image_props.lang = Data.Language.KR;
+            else if (meta.startsWith("效果缩放")) {
+                let scale = parseFloat(meta.substring(5));
+                if (!isNaN(scale)) card_image_props.desc_scale = scale;
+            }
+            else if (meta.startsWith("灵摆缩放")) {
+                let scale = parseFloat(meta.substring(5));
+                if (!isNaN(scale)) card_image_props.pdesc_scale = scale;
+            }
+            else if (meta === "自动注音") {
+                enable_card_proxy();
+                card_override.name = ofuru(card_override.name ?? card.name, config.ofurus);
+                card_override.desc = ofuru(card_override.desc ?? card.desc, config.ofurus);
+                if (card.pendulum_text) card_override.pendulum_text = ofuru(card_override.pendulum_text ?? card.pendulum_text, config.ofurus);
+            }
+            else if (meta === "移除序号前的回车") 
+                remove_newline = true;
+            else if (meta === "保留序号前的回车")
+                remove_newline = false;
+            else if (meta.startsWith("替换卡名")) {
+                enable_card_proxy();
+                card_override.name = meta.substring(4);
+            }
+    if (remove_newline) {
+        const remove_newline_regex = /\n[②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳㉑㉒㉓㉔㉕㉖㉗㉘㉙㉚㉛㉜㉝㉞㉟㊱㊲㊳㊴㊵㊶㊷㊸㊹㊺㊻㊼㊽㊾㊿]/g
+        enable_card_proxy();
+        card_override.desc = (card_override.desc ?? card.desc).replace(remove_newline_regex, (match) => match.substring(1));
+        card_override.pendulum_text = card.pendulum_text?.replace(remove_newline_regex, (match) => match.substring(1));
+    }
+
     return <Form className="editor" formValue={card} onValuesChange={send_card_signal}>
         <Row gutter={12} className="panel-container">
             <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12} className="full-width card-image-container" style={use_full_image ? { "textAlign": 'center' } : undefined}>
                 <Spin wrapperClassName="card-image-wrapper" spinning={loading_image != null} delay={200}>
                     {
-                        use_full_image 
+                        use_full_image
                         ? <img class="card-image" src={full_image ?? ""} />
                         : <CardImage 
-                            id="generated-image" 
+                            id="generated-image"
+                            extend
                             card={card} 
                             image={center_image} 
-                            lang={Data.Language.ZH_CN} 
                             asset_prefix={import.meta.env.BASE_URL+"assets"} 
                             style={{ height: '100%', margin: 'auto' }} 
                             onClick={() => set_dialog('image') }
+                            {...card_image_props}
                         />
                     }
                 </Spin>
@@ -293,13 +351,13 @@ export function Editor() {
             <FormItem name='desc' className="description"><Input.TextArea {...silent_triggers} /></FormItem>
         </Row>
         <Modal open={dialog == 'image'} onCancel={() => set_dialog(null)} footer={null} width={1434} height={2071} closable={false}>
-            <CardImage id="full-card" card={card} image={center_image} lang={Data.Language.ZH_CN} asset_prefix={import.meta.env.BASE_URL + "assets"} style={{ width: '1394px',height: '2031px' }} />
+            <CardImage id="full-card" extend card={card} image={center_image} asset_prefix={import.meta.env.BASE_URL + "assets"} style={{ width: '1394px',height: '2031px' }} {...card_image_props} />
         </Modal>
-        <Modal open={dialog == 'texts'} footer={null} title="提示文本" closable={false} destroyOnClose
+        <Modal open={dialog == 'texts'} footer={null} title="提示文本" closable={false} destroyOnHidden 
             onCancel={() => { card.texts = editing_text.split("\n"); send_card_signal(); set_dialog(null) }} >
             <Input.TextArea style={{ height: '600px' }} defaultValue={editing_text} onChange={(e) => set_editing_text((e.target as any).value)} />
         </Modal>
-        <Modal open={dialog == 'script'} footer={null} title={`卡片脚本 ${card.name}(${card.code})`} closable={false} width="100%" style={{ maxWidth: '1400px' }} destroyOnClose
+        <Modal open={dialog == 'script'} footer={null} title={`卡片脚本 ${card.name}(${card.code})`} closable={false} width="100%" style={{ maxWidth: '1400px' }} destroyOnHidden
             onCancel={() => {
                 let lua_path = `script/c${card.code}.lua`
                 if (editing_text === "")

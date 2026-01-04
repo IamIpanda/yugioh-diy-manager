@@ -54,15 +54,26 @@ export let Sqlite3: Sqlite3Static;
 Sqlite3InitModule({ print: console.log, printErr: console.error}).then((r) => Sqlite3 = r);
 
 export function transform_card_data(card: BinaryCard, rules?: RegExp[]): Card {
-    let desc = new Description(card.desc, rules)    
     let subtype_text = undefined;
     if ((card.type & Data.Type.Monster) > 0)
         subtype_text = transformer.format_race(card.race) + "族" + transformer.format_subtype(card.type).replace("/非效果", "")
             + ((card.type & Data.Type.Effect) > 0 ? "/效果" : "")
+    let is_oscillulam = (card.type & Data.Type.Pendulum) > 0 && (card.type & Data.Type.Trap) > 0
+    if (is_oscillulam) subtype_text = subtype_text?.replace("灵摆", "冥摆")
+    let metas = card.metas
+    if (metas)
+        for (let meta of card.metas!)
+            switch(meta) {
+                case "翼神龙": metas.push("winged-dragon"); break;
+                case "巨神兵": metas.push("tormentor"); break;
+                case "天空龙": metas.push("sky-dragon"); break;
+            }
+    let desc = new Description(card.desc, rules)    
     
     let length_fix: {full: number | null} = { full: null };
     let card_hybrid = Object.create(card, {
         subtype_text: { value: subtype_text },
+        metas: { value: metas },
         main_type: {
             enumerable: true, 
             get() { return card.type & 7 }, 
