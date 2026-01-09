@@ -8,8 +8,14 @@ import { default_values } from "./default";
 import { current_package_name, current_text_filename, get_item_in_text, init_storage, text_filenames } from "./storage";
 import { build_trie, TrieNode } from "./furigana";
 
+const AutoRemoveNewLineOptions = ['before_order', 'aggresive', 'off'] as const
+export type AutoRemoveNewLineOption = typeof AutoRemoveNewLineOptions[number]
+function is_auto_remove_newline_option(value: any): value is AutoRemoveNewLineOption {
+    return AutoRemoveNewLineOptions.includes(value)
+
+}
 export type Config = {
-    auto_remove_newline: boolean,
+    auto_remove_newline: AutoRemoveNewLineOption,
     strings: string,
     not_effect_rules: RegExp[],
     ofurus: TrieNode,
@@ -34,7 +40,7 @@ await init_storage()
 let plain_default_config_value: typeof default_values.config = (await localforage.getItem('config')) ?? default_values.config;
 export let default_config_value: Config = {
     ...plain_default_config_value,
-    auto_remove_newline: plain_default_config_value.auto_remove_newline ?? default_values.config.auto_remove_newline,
+    auto_remove_newline: is_auto_remove_newline_option(plain_default_config_value.auto_remove_newline) ? plain_default_config_value.auto_remove_newline : default_values.config.auto_remove_newline as AutoRemoveNewLineOption,
     not_effect_rules: transform_not_effect_rules(plain_default_config_value.not_effect_rules),
     ofurus: build_trie(typeof plain_default_config_value.ofurus === 'string' ? plain_default_config_value.ofurus : default_values.config.ofurus),
     set_config: null as any,

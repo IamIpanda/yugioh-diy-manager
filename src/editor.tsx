@@ -215,19 +215,30 @@ export function Editor() {
                 card_override.desc = ofuru(card_override.desc ?? card.desc, config.ofurus);
                 if (card.pendulum_text) card_override.pendulum_text = ofuru(card_override.pendulum_text ?? card.pendulum_text, config.ofurus);
             }
+            else if (meta === "移除回车")
+                remove_newline = 'aggresive';
             else if (meta === "移除序号前的回车") 
-                remove_newline = true;
-            else if (meta === "保留序号前的回车")
-                remove_newline = false;
+                remove_newline = 'before_order';
+            else if (meta === "保留回车")
+                remove_newline = 'off';
             else if (meta.startsWith("替换卡名")) {
                 enable_card_proxy();
                 card_override.name = meta.substring(4);
             }
-    if (remove_newline) {
+    if (remove_newline == 'before_order') {
         const remove_newline_regex = /\n[②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳㉑㉒㉓㉔㉕㉖㉗㉘㉙㉚㉛㉜㉝㉞㉟㊱㊲㊳㊴㊵㊶㊷㊸㊹㊺㊻㊼㊽㊾㊿]/g
         enable_card_proxy();
         card_override.desc = (card_override.desc ?? card.desc).replace(remove_newline_regex, (match) => match.substring(1));
-        card_override.pendulum_text = card.pendulum_text?.replace(remove_newline_regex, (match) => match.substring(1));
+        card_override.pendulum_text = (card_override.pendulum_text ?? card.pendulum_text)?.replace(remove_newline_regex, (match) => match.substring(1));
+    }
+    else if (remove_newline == 'aggresive') {
+        let keep_first_line = (card.type & (Data.Type.Xyz | Data.Type.Synchro | Data.Type.Fusion | Data.Type.Link)) > 0;
+        enable_card_proxy();
+        card_override.pendulum_text = (card_override.pendulum_text ?? card.pendulum_text)?.replace(/\n/g, '');
+        let lines = (card_override.desc ?? card.desc).split('\n');
+        if (keep_first_line && lines.length > 0) lines[0] = lines[0] + "\n"
+        card_override.desc = lines.join('');
+        //card_override.desc = lines.map((line) => line.startsWith('●') ? '\n' + line + '\n' : line).join('').replace(/\n\n/g, "\n");
     }
 
     return <Form className="editor" formValue={card} onValuesChange={send_card_signal}>
@@ -247,7 +258,7 @@ export function Editor() {
                             onClick={() => set_dialog('image') }
                             {...card_image_props}
                         />
-                    }
+                }
                 </Spin>
             </Col>
             <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12} className='panel'>

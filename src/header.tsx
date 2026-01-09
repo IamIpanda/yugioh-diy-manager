@@ -1,5 +1,5 @@
 import { Dispatch, StateUpdater, useContext, useEffect, useRef, useState } from 'preact/hooks'
-import { Flex, Modal, Upload, Tooltip, Button, Typography, Space, Input, GetProps, Dropdown, Table, Switch, InputRef, TreeDataNode, Tree, Form, Spin, Alert, Checkbox } from 'antd';
+import { Flex, Modal, Upload, Tooltip, Button, Typography, Space, Input, GetProps, Dropdown, Table, Switch, InputRef, TreeDataNode, Tree, Form, Spin, Alert, Checkbox, Select } from 'antd';
 import { useForm } from 'antd/es/form/Form';
 import { createClient, FileStat, WebDAVClientOptions } from 'webdav'
 import { AiOutlineDownload, AiOutlineQuestionCircle, AiOutlineSetting, AiOutlineUpload, AiOutlineFolderOpen, AiOutlineDatabase, AiOutlineDelete, AiOutlineRedo, AiFillCheckCircle, AiOutlineUnorderedList, AiOutlineFolderAdd, AiOutlineFileText, AiOutlineCloudServer } from "react-icons/ai";
@@ -77,7 +77,10 @@ const config = useContext(ConfigContext);
     }
     return <Modal open={prop.is_open} title="设置" className='modal-settings' onCancel={on_close} footer={null} width={800}>
             <HeightSpace height='5px' />
-            <Checkbox checked={auto_remove_newline} onChange={(e) => set_auto_remove_newline(e.target.checked)}>绘制卡图时，自动移除效果中序号前的回车符</Checkbox>
+            绘制卡图时，回车移除策略：<Select className='auto-remove-newline-select' 
+                                          options={[{label: '激进', value: 'aggresive'}, {label: '仅序号前', value: 'before_order'}, {label: '关闭', value: 'off'}]} 
+                                          value={auto_remove_newline} 
+                                          onChange={(e) => set_auto_remove_newline(e)} />
             <HeightSpace height='20px' />
             <Flex className='modal-settings-inputs' gap={20} justify='space-between'>
                 <Flex vertical>

@@ -35,6 +35,10 @@
     height: 700px;
 }
 
+.modal-settings .auto-remove-newline-select {
+    width: 190px;
+}
+
 .package-modal .ant-modal-header {
     padding-bottom: 10px;
 }

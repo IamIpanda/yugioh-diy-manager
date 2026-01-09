@@ -1524,7 +1524,7 @@ export let default_values = {
 	"packages": { [DEFAULT_PACKAGE_NAME]: { variable: { last_text_filename: DEFAULT_PACKAGE_NAME + ".txt", data_version: 1 } }},
     "last_package": DEFAULT_PACKAGE_NAME,
     "config": {
-		"auto_remove_newline": true,
+		"auto_remove_newline": 'aggressive',
         "not_effect_rules": "^[-—].*\n^.{2,4}[:：].*\n^\\(.*\\)$\n^（.*）$\n^.*DoItYourself.*$",
         "strings": strings,
 		"ofurus": ofurus
