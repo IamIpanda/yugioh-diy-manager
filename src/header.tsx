@@ -1,18 +1,18 @@
 import { Dispatch, StateUpdater, useContext, useEffect, useRef, useState } from 'preact/hooks'
-import { Flex, Modal, Upload, Tooltip, Button, Typography, Space, Input, GetProps, Dropdown, Table, Switch, InputRef, TreeDataNode, Tree, Form, Spin, Alert, Checkbox, Select } from 'antd';
-import { useForm } from 'antd/es/form/Form';
-import { createClient, FileStat, WebDAVClientOptions } from 'webdav'
+import { Flex, Modal, Upload, Tooltip, Button, Typography, Space, Input, GetProps, Dropdown, Table, Switch, InputRef, TreeDataNode, Tree, Form, Spin, Alert, Checkbox, Select, Collapse, InputNumber } from 'antd';
 import { AiOutlineDownload, AiOutlineQuestionCircle, AiOutlineSetting, AiOutlineUpload, AiOutlineFolderOpen, AiOutlineDatabase, AiOutlineDelete, AiOutlineRedo, AiFillCheckCircle, AiOutlineUnorderedList, AiOutlineFolderAdd, AiOutlineFileText, AiOutlineCloudServer } from "react-icons/ai";
 import { RiArchiveStackLine, RiDownloadCloud2Line } from "react-icons/ri";
 import { VscDebug } from 'react-icons/vsc';
 
 import * as ini from 'ini'
-import { format } from 'cdb-transformer';
-import localforage from 'localforage';
-import { build_trie } from './model/furigana';
-import { DEFAULT_PACKAGE_NAME, default_values } from './model/default';
-import { generate_from_text, transform_not_effect_rules } from './model/card';
-import { AppContext, ConfigContext, Context, load_strings, load_context, reload_context } from './model/context'
+import localforage from 'localforage'
+import { createClient, FileStat, WebDAVClientOptions } from 'webdav'
+import { format } from 'cdb-transformer'
+
+import { build_trie } from './model/furigana'
+import { DEFAULT_PACKAGE_NAME, default_values } from './model/default'
+import { generate_from_text, transform_not_effect_rules } from './model/card'
+import { AppContext, ConfigContext, Context, load_strings, load_context, reload_context, AutoRemoveNewLineOption } from './model/context'
 import { accept_database, accept_package, current_package_name, current_storage, delete_package, dump, generate_package, generate_package_name_from_filename, load_default_package, package_list, set_package, set_text_filename } from './model/storage';
 
 import { html as Doc } from './assets/help.md'
@@ -34,7 +34,13 @@ const config = useContext(ConfigContext);
     const [package_strings, set_package_strings] = useState("")
     const [loading_internal_strings, set_loading_internal_strings] = useState(false)
     const [not_effect_rules, set_not_effect_rules] = useState("")
-    const [auto_remove_newline, set_auto_remove_newline] = useState(config.auto_remove_newline)
+    
+    const [text_form] = Form.useForm<{ auto_remove_newline: AutoRemoveNewLineOption }>()
+    const [image_form] = Form.useForm<typeof config.image>()
+    const render_engine = Form.useWatch('render_engine', image_form)
+    const large_image = Form.useWatch('large_image', image_form)
+    const auto_remove_newline = Form.useWatch('auto_remove_newline', text_form)
+
     useEffect(() => {
         localforage.getItem("config").then((c) => {
             set_not_effect_rules((c as any ?? {}).not_effect_rules)
@@ -43,14 +49,16 @@ const config = useContext(ConfigContext);
         current_storage.getItem("strings.conf").then((c) => set_package_strings(c as string ?? ""), () => set_package_strings(""))
     }, [prop.is_open])
     const on_close = async () => {
+        let image = image_form.getFieldsValue(true)
         config.set_config({ 
             ...config, 
             auto_remove_newline,
             strings: internal_strings, 
             not_effect_rules: transform_not_effect_rules(not_effect_rules),
-            ofurus: build_trie(ofurus)
+            ofurus: build_trie(ofurus),
+            image: image
         })
-        let save_config: any = { ...config, strings: internal_strings, ofurus, not_effect_rules, auto_remove_newline }
+        let save_config: any = { ...config, strings: internal_strings, ofurus, not_effect_rules, auto_remove_newline, image }
         delete save_config.set_config
         await localforage.setItem("config", save_config)
         try {
@@ -75,38 +83,79 @@ const config = useContext(ConfigContext);
         }
         set_loading_internal_strings(false)
     }
-    return <Modal open={prop.is_open} title="设置" className='modal-settings' onCancel={on_close} footer={null} width={800}>
-            <HeightSpace height='5px' />
-            绘制卡图时，回车移除策略：<Select className='auto-remove-newline-select' 
-                                          options={[{label: '激进', value: 'aggresive'}, {label: '仅序号前', value: 'before_order'}, {label: '关闭', value: 'off'}]} 
-                                          value={auto_remove_newline} 
-                                          onChange={(e) => set_auto_remove_newline(e)} />
-            <HeightSpace height='20px' />
-            <Flex className='modal-settings-inputs' gap={20} justify='space-between'>
-                <Flex vertical>
-                    <Flex justify='space-between'>
-                        <Tooltip title="字段名列表"><Typography.Text>Strings.conf:</Typography.Text></Tooltip>
-                        <Flex gap="small">
-                            {!use_package && <Tooltip title="从远端下载最新字段名列表"><Button icon={<RiDownloadCloud2Line />} variant='link' size='small' onClick={on_update} disabled={loading_internal_strings} /></Tooltip>}
-                            <Switch checkedChildren="卡包" unCheckedChildren="自带" value={use_package} onChange={(c) => set_use_package(c)} />
-                        </Flex>
+    const auto_remove_newline_hints = {
+        "aggressive": "除了额外卡组的怪兽的第一个回车以外，删除所有回车。",
+        "before_order": "仅删除从②开始的所有序号前的回车。",
+        "off": "不删除回车。"
+    }
+    const render_engine_hints = {
+        'html2canvas': '速度较快，无浏览器限制，在少数场景下可能渲染不正确。',
+        'dom-to-image': '速度较慢，Safari不可用，生成比较准确。'
+    }
+    const items: GetProps<typeof Collapse>['items'] = [
+        {
+            key: 'text',
+            label: '卡片效果文本处理',
+            children: <Flex vertical>
+                <Tooltip title="从左侧文本框映射到右侧卡片编辑器时，删除满足这些条件的效果行。"><Typography.Text>效果排除行:</Typography.Text></Tooltip>
+                <HeightSpace height='5px' />
+                <Input.TextArea style={{ height: '200px' }} value={not_effect_rules} onChange={(e) => set_not_effect_rules(e.currentTarget.value)} />
+                <HeightSpace height='20px' />
+                <Form form={text_form} initialValues={config}>
+                    <Form.Item layout='vertical' name="auto_remove_newline" label="回车移除策略：" extra={auto_remove_newline_hints[auto_remove_newline]}>
+                        <Select className='auto-remove-newline-select' 
+                            options={[{ label: '激进', value: 'aggressive' }, { label: '仅序号前', value: 'before_order' }, { label: '关闭', value: 'off' }]} />
+                    </Form.Item>
+                </Form>
+            </Flex>,
+        },
+        {
+            key: 'image',
+            label: '生成卡图全图',
+            children: <Form<typeof config.image> form={image_form} initialValues={config.image}>
+                <Form.Item label="使用设计尺寸生成图片：" name="large_image" extra={large_image ? "使用原本尺寸生成卡图，在生成卡图时会弹出对话框。" : "使用预览的尺寸直接生成卡图。"}>
+                    <Switch />
+                </Form.Item>
+                <Form.Item layout='vertical' label="渲染引擎：" name="render_engine" extra={render_engine_hints[render_engine]}>
+                    <Select<typeof config.image.render_engine>
+                        options={[{ label: '引擎1 (HTML to Canvas)', value: 'html2canvas' }, { label: '引擎2 (DOM to image)', value: 'dom-to-image' }]} />
+                </Form.Item>
+                { large_image && <Form.Item label="缩放倍数：" name="scale" extra={""}>
+                    <InputNumber min={0.1} max={1} step={0.1} />
+                </Form.Item> }
+            </Form>
+        },
+        {
+            key: 'parse',
+            label: '卡片文本解析',
+            children: <Flex vertical>
+                <Flex justify='space-between'>
+                    <Tooltip title="字段名列表"><Typography.Text>Strings.conf:</Typography.Text></Tooltip>
+                    <Flex gap="small">
+                        {!use_package && <Tooltip title="从远端下载最新字段名列表"><Button icon={<RiDownloadCloud2Line />} variant='link' size='small' onClick={on_update} disabled={loading_internal_strings} /></Tooltip>}
+                        <Switch checkedChildren="卡包" unCheckedChildren="自带" value={use_package} onChange={(c) => set_use_package(c)} />
                     </Flex>
-                    <HeightSpace height='5px' />
-                    <Input.TextArea value={use_package ? package_strings : internal_strings} disabled={loading_internal_strings} onChange={(e) => {
-                        if (use_package) set_package_strings(e.currentTarget.value)
-                        else set_internal_strings(e.currentTarget.value)
-                    }} />
                 </Flex>
-                <Flex vertical>
-                    <Tooltip title="自动注音的参考表"><Typography.Text>自动注音规则:</Typography.Text></Tooltip>
-                    <HeightSpace height='5px' />
-                    <Input.TextArea value={ofurus} onChange={(e) => set_ofurus(e.currentTarget.value)} />
-                </Flex>
+                <HeightSpace height='5px' />
+                <Input.TextArea value={use_package ? package_strings : internal_strings} disabled={loading_internal_strings} onChange={(e) => {
+                    if (use_package) set_package_strings(e.currentTarget.value)
+                    else set_internal_strings(e.currentTarget.value)
+                }} />
+            </Flex>,
+        },
+        {
+            key: 'furigana',
+            label: '日文注音',
+            children: <Flex vertical>
+                <Tooltip title="自动注音的参考表"><Typography.Text>自动注音规则:</Typography.Text></Tooltip>
+                <HeightSpace height='5px' />
+                <Input.TextArea value={ofurus} onChange={(e) => set_ofurus(e.currentTarget.value)} />
             </Flex>
-            <HeightSpace height='20px' />
-            <Tooltip title="满足匹配条件的行，不会被计入效果。"><Typography.Text>效果排除行:</Typography.Text></Tooltip>
-            <HeightSpace height='5px' />
-            <Input.TextArea style={{ height: '200px' }} value={not_effect_rules} onChange={(e) => set_not_effect_rules(e.currentTarget.value)} />
+        }
+    ];
+
+    return <Modal open={prop.is_open} title="设置" className='modal-settings' onCancel={on_close} footer={null} width={800}>
+            <Collapse ghost defaultActiveKey={'text'} items={items} />
         </Modal>
 }
 
@@ -490,7 +539,7 @@ function PackageModal(props: GetProps<typeof Modal> & { package_name: string }) 
     let { package_name, ...rest_props } = props
     let [enable, set_enable] = useState(false)
     let [ini_structure, set_ini_structure] = useState<{ YGOProExpansionPack?: ExpansionPack }>({})
-    const [form] = useForm<ExpansionPack>()
+    const [form] = Form.useForm<ExpansionPack>()
     let default_value = {
         "FileName": package_name + ".ypk",
         "PackName": package_name,

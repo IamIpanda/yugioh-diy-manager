@@ -2,12 +2,13 @@
 import { cloneElement } from "preact";
 import { useContext, useEffect, useState, useRef } from "preact/hooks";
 import { createContext, HTMLProps, ReactElement } from "preact/compat";
-import { Select, InputNumber, Input, Space, SelectProps, Row, Col, GetProps, Modal, Button, Upload, Dropdown, Spin } from 'antd'
+import { Select, InputNumber, Input, Space, SelectProps, Row, Col, GetProps, Modal, Button, Upload, Dropdown, Spin, Image } from 'antd'
 
 import AceEditor from "react-ace";
 import "ace-builds/src-noconflict/mode-lua";
 import "ace-builds/src-noconflict/theme-github";
 import html2canvas from "html2canvas";
+import domtoimage from 'dom-to-image'
 import ImgCrop from "antd-img-crop";
 
 import { Card as CardImage, Data } from "yugioh-card-react";
@@ -15,7 +16,7 @@ import * as transformer from "cdb-transformer";
 
 import { ofuru } from "./model/furigana";
 import { current_storage } from "./model/storage";
-import { AppContext, ConfigContext, Context } from "./model/context";
+import { AppContext, ConfigContext, Context, ImageConfig, load_strings } from "./model/context";
 import { ATTRIBUTE_NAMES, Card, EX_TYPES, LINKER_NAMES, PREFIXES, RACE_NAMES, SUB_TYPES, TYPE_NAMES } from "./model/card";
 
 import { AiOutlineContainer, AiOutlineDelete, AiOutlineDownload, AiOutlineUpload } from "react-icons/ai";
@@ -99,6 +100,7 @@ export function Editor() {
     let [editing_text, set_editing_text] = useState('')
 
     let [loading_image, set_loading_image] = useState<number | null>(null)
+    let [generating_image, set_generating_image] = useState<boolean>(false)
     const loading_image_ref = useRef<number | null>(loading_image)
     let [full_image, set_full_image] = useState<string | null>(null)
     let [center_image, set_center_image] = useState<string | null>(null)
@@ -109,17 +111,18 @@ export function Editor() {
     let is_xyz = (card.type & Data.Type.Xyz) > 0;
     let is_link = (card.type & Data.Type.Link) > 0;
     
-    let send_card_signal = () => { context.set_context({ ...context, card_signal: !context.card_signal }) }
+    let send_card_signal = () => { console.log("send signal!"); context.set_context({ ...context, card_signal: !context.card_signal }) }
     let silent_triggers = { onFocus: () => { context.disable_refresh = true }, onBlur: () => { context.disable_refresh = false; send_card_signal() } }
     let is_ex_monster = (card: Card) => card.type & Data.Type.Monster && card.type & EX_TYPES
 
     const enable_debug = false
     
     useEffect(() => {
-        transformer.set_string_conf(config.strings)
-        let _set_names = new Map<number, string>(transformer.set_names());
-        _set_names.set(0, "N/A")
-        set_set_names(_set_names)
+    load_strings(config).then(() => {
+            let _set_names = new Map<number, string>(transformer.set_names());
+            _set_names.set(0, "N/A")
+            set_set_names(_set_names)
+        })
     }, [config.strings])
 
     let refresh_image = async (change_to_use_full_image: boolean) => {
@@ -216,7 +219,7 @@ export function Editor() {
                 if (card.pendulum_text) card_override.pendulum_text = ofuru(card_override.pendulum_text ?? card.pendulum_text, config.ofurus);
             }
             else if (meta === "移除回车")
-                remove_newline = 'aggresive';
+                remove_newline = 'aggressive';
             else if (meta === "移除序号前的回车") 
                 remove_newline = 'before_order';
             else if (meta === "保留回车")
@@ -231,7 +234,7 @@ export function Editor() {
         card_override.desc = (card_override.desc ?? card.desc).replace(remove_newline_regex, (match) => match.substring(1));
         card_override.pendulum_text = (card_override.pendulum_text ?? card.pendulum_text)?.replace(remove_newline_regex, (match) => match.substring(1));
     }
-    else if (remove_newline == 'aggresive') {
+    else if (remove_newline == 'aggressive') {
         let keep_first_line = (card.type & (Data.Type.Xyz | Data.Type.Synchro | Data.Type.Fusion | Data.Type.Link)) > 0;
         enable_card_proxy();
         card_override.pendulum_text = (card_override.pendulum_text ?? card.pendulum_text)?.replace(/\n/g, '');
@@ -247,7 +250,7 @@ export function Editor() {
                 <Spin wrapperClassName="card-image-wrapper" spinning={loading_image != null} delay={200}>
                     {
                         use_full_image
-                        ? <img class="card-image" src={full_image ?? ""} />
+                        ? <Image rootClassName="card-image-wrapper" className="card-image" src={full_image ?? ""} />
                         : <CardImage 
                             id="generated-image"
                             extend
@@ -335,7 +338,13 @@ export function Editor() {
                                 label: '生成全图',
                                 icon: <AiOutlineContainer />,
                                 disabled: center_image == null,
-                                onClick: () => generate_image(card.code).then(() => refresh_image(true))
+                                onClick: () => {(async () => {
+                                    set_generating_image(true);
+                                    await sleep(500)
+                                    await generate_image(card.code, config.image);
+                                    set_generating_image(false);
+                                    refresh_image(true)
+                                })()}
                             },
                             {
                                 key: 'remove',
@@ -361,8 +370,13 @@ export function Editor() {
         <Row gutter={is_pendulum ? 6 : 12} className={`desc-container`} style={{ paddingTop: "20px", height: is_pendulum ? '25%' : '50%', width: '100%' }}>
             <FormItem name='desc' className="description"><Input.TextArea {...silent_triggers} /></FormItem>
         </Row>
-        <Modal open={dialog == 'image'} onCancel={() => set_dialog(null)} footer={null} width={1434} height={2071} closable={false}>
+        <Modal open={dialog == 'image'} onCancel={() => set_dialog(null)} footer={null} width={1434} height={2071} closable={false} destroyOnHidden>
             <CardImage id="full-card" extend card={card} image={center_image} asset_prefix={import.meta.env.BASE_URL + "assets"} style={{ width: '1394px',height: '2031px' }} {...card_image_props} />
+        </Modal>
+        <Modal open={generating_image && config.image.large_image} footer={null} title={null} closable={false} width={1394*config.image.scale+50} height={2031*config.image.scale+50} destroyOnHidden>
+            <Spin spinning={generating_image} tip="正在生成全图，请稍候..." >
+                <CardImage id="full-card" extend card={card} image={center_image} asset_prefix={import.meta.env.BASE_URL + "assets"} style={{ width: `${1394*config.image.scale}px`,height: `${2031*config.image.scale}px` }} {...card_image_props} />
+            </Spin>
         </Modal>
         <Modal open={dialog == 'texts'} footer={null} title="提示文本" closable={false} destroyOnHidden 
             onCancel={() => { card.texts = editing_text.split("\n"); send_card_signal(); set_dialog(null) }} >
@@ -434,22 +448,45 @@ function delete_center_image(code: number) {
     return current_storage.removeItem(`pico/${code}.jpg`)
 }
 
-async function generate_image(code: number) {
-    let div = document.getElementById('generated-image');
+async function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function generate_image(code: number, config: ImageConfig) {
+    let div = document.getElementById(config.large_image ? 'full-card' : 'generated-image');
     if (div == null) {
         Modal.warn({ content: '请先切换至中心图模式再进行生成。' })
         return
     }
-    div = div.childNodes[0] as HTMLElement;
-    div.style.transform = "";
+    div = div.firstElementChild as HTMLElement
     
-    let canvas = await html2canvas(div, { backgroundColor: 'transparent' });
-    return new Promise((resolve, reject) => {
-        canvas.toBlob((blob) => {
+    if (config.render_engine == 'html2canvas') {
+        let canvas = await html2canvas(div, { backgroundColor: 'transparent' });
+        return new Promise((resolve, reject) => {
+            canvas.toBlob((blob) => {
+                if (blob == null) { reject(); return }
+                blob.arrayBuffer().then(buffer => current_storage.setItem(`pics/${code}.jpg`, buffer)).then(() => resolve(undefined))
+            }, "image/jpeg", 0.95)
+        })
+    }
+    else {
+        let s = await domtoimage.toJpeg(div, { quality: 0.95 });
+        let blob = b64_to_blob(s);
+        return new Promise((resolve, reject) => {
             if (blob == null) { reject(); return }
             blob.arrayBuffer().then(buffer => current_storage.setItem(`pics/${code}.jpg`, buffer)).then(() => resolve(undefined))
-        }, "image/jpeg", 0.8)
-    })
+        })
+    }
+}
+
+// https://stackoverflow.com/questions/27980612/converting-base64-to-blob-in-javascript
+function b64_to_blob(dataURI: string) {
+    var byteString = atob(dataURI.split(',')[1]);
+    var ab = new ArrayBuffer(byteString.length);
+    var ia = new Uint8Array(ab);
+    for (var i = 0; i < byteString.length; i++)
+        ia[i] = byteString.charCodeAt(i);
+    return new Blob([ab], { type: 'image/jpeg' });
 }
 
 function download(filename: string, image: string) {

@@ -3,17 +3,18 @@ import { useEffect, useState } from 'preact/hooks'
 import { Editor } from './editor'
 import { Header } from './header'
 import TextInput from './Input'
-import { default_config_value, default_context_value, AppContext, ConfigContext, reload_context } from './model/context'
+import { default_config_value, default_context_value, AppContext, ConfigContext, reload_context, Context } from './model/context'
 
 import "./app.css"
 import { current_storage } from './model/storage'
 
-export function App() {
+export function App({ context_value }: { context_value?: Partial<Context> }) {
     let [config, set_config] = useState(default_config_value)
-    let [context, set_context] = useState(default_context_value)
+    let [context, set_context] = useState({ ...default_context_value, ...context_value })
     config.set_config = set_config;
     context.set_context = set_context;
-    useEffect(() => { reload_context(context) }, [])
+    if (context_value == null)
+        useEffect(() => { reload_context(context) }, [])
     // check filename to prevent it override the whole world when first load.
     useEffect(() => { if (context.filename && context.filename != '') current_storage.setItem(context.filename, context.text) }, [context.text])
     return  <ConfigContext.Provider value={config}>

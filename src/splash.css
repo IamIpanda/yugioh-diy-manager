@@ -4,9 +4,26 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    color: white;
+}
+
+.splash .ant-typography {
 }
 
 .splash .ant-spin {
-    padding: 20px
+    padding: 20px;
+}
+
+.splash .running {
+    margin-top: 16px;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.splash .ant-progress {
+    max-width: 500px;
+}
+
+.splash .ant-progress-text {
 }
 

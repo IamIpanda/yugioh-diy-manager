@@ -1527,7 +1527,12 @@ export let default_values = {
 		"auto_remove_newline": 'aggressive',
         "not_effect_rules": "^[-—].*\n^.{2,4}[:：].*\n^\\(.*\\)$\n^（.*）$\n^.*DoItYourself.*$",
         "strings": strings,
-		"ofurus": ofurus
+		"ofurus": ofurus,
+		"image": {
+			render_engine: 'html2canvas' as 'html2canvas' | 'dom-to-image',
+			large_image: true,
+			scale: 1
+		}
     }
 }
 
