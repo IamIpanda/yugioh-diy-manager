@@ -16,7 +16,11 @@ export function App({ context_value }: { context_value?: Partial<Context> }) {
     if (context_value == null)
         useEffect(() => { reload_context(context) }, [])
     // check filename to prevent it override the whole world when first load.
-    useEffect(() => { if (context.filename && context.filename != '') current_storage.setItem(context.filename, context.text) }, [context.text])
+    useEffect(() => { if (context.filename && context.filename != '') set_context(c => ({ ...c, saving: true })) }, [context.text])
+    useEffect(() => {
+        if (!context.saving || !context.filename || context.filename == '') return
+        current_storage.setItem(context.filename, context.text).finally(() => set_context(c => ({ ...c, saving: false })))
+    }, [context.saving])
     return  <ConfigContext.Provider value={config}>
             <AppContext.Provider value={context}>
             <Spin className="main-spinner" spinning={context.loading != null} tip={context.loading} size="large">

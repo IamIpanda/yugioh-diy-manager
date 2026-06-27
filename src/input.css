@@ -11,15 +11,22 @@
     border-color: #3182ce;
 }
 
-#input button.ant-float-btn.button-category {
-    position: absolute;
-    inset-inline-end: unset;
-    right: 70px
+#input {
+    position: relative;
 }
-#input button.ant-float-btn.button-category-2 {
+
+#input .input-toolbar {
     position: absolute;
-    inset-inline-end: unset;
-    right: 120px
+    top: 1px;
+    right: 1px;
+    display: flex;
+    flex-direction: row;
+    z-index: 10;
+    background: var(--ant-color-bg-container, #ffffff);
+    border-radius: 0 5px 0 6px;
+    border-bottom: 1px solid #d9d9d9;
+    border-left: 1px solid #d9d9d9;
+    overflow: hidden;
 }
 
 .card-category-modal .ant-alert {

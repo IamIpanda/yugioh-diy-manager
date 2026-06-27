@@ -68,12 +68,12 @@ export function transform_card_data(card: BinaryCard, rules?: RegExp[]): Card {
                 case "巨神兵": metas.push("tormentor"); break;
                 case "天空龙": metas.push("sky-dragon"); break;
             }
+    card.metas = metas?.length ? metas : undefined
     let desc = new Description(card.desc, rules)    
-    
+     
     let length_fix: {full: number | null} = { full: null };
     let card_hybrid = Object.create(card, {
         subtype_text: { value: subtype_text },
-        metas: { value: metas },
         main_type: {
             enumerable: true, 
             get() { return card.type & 7 }, 
@@ -138,6 +138,9 @@ export function transform_card_data(card: BinaryCard, rules?: RegExp[]): Card {
         right_scale: {
             get() { return card.rscale },
             set(v) { card.rscale = v; desc.reformat_pendulum_scale(card.lscale, v); card.desc = desc.toString() }
+        },
+        pack_info: { 
+            get() { return card.pack?.pack_id; } 
         }
     })
     return card_hybrid
@@ -231,11 +234,16 @@ export function read_from_array_buffer(arr: ArrayBuffer): BinaryCard[] {
     let database = new Sqlite3.oo1.DB();
     let result_code = Sqlite3.capi.sqlite3_deserialize(database, 'main', pointer, arr.byteLength, arr.byteLength, 0);
     database.checkRc(result_code);
-    return transformer.parse_database(database);
+    let cards = transformer.parse_database(database);
+    database.close();
+    Sqlite3.wasm.dealloc(pointer);
+    return cards;
 }
 
 export function generate_from_text(text: string): Uint8Array {
     let database = new Sqlite3.oo1.DB();
     transformer.write_database(database, text);
-    return Sqlite3.capi.sqlite3_js_db_export(database);
+    let result = Sqlite3.capi.sqlite3_js_db_export(database);
+    database.close();
+    return result;
 }

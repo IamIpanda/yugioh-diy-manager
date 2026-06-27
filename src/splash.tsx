@@ -3,8 +3,8 @@ import { useEffect, useState } from "preact/hooks";
 import "./splash.css"
 
 const PRELOAD_FONTS = [
-    '/assets/yugioh/font/ygo-font.css',
-    '/assets/custom-font/custom-font.css',
+    `${import.meta.env.BASE_URL}assets/yugioh/font/ygo-font.css`,
+    `${import.meta.env.BASE_URL}assets/custom-font/custom-font.css`,
 ];
 
 async function sleep(ms: number): Promise<void> {

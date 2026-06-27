@@ -2,11 +2,14 @@
 import * as transformer from "cdb-transformer";
 import { createContext } from "preact";
 import { Dispatch, StateUpdater } from "preact/hooks";
+import { Data } from 'yugioh-card-react';
 import { BinaryCard, Card, transform_card_data, transform_not_effect_rules } from "./card";
 import localforage from "localforage";
 import { default_values } from "./default";
 import { current_package_name, current_storage, current_text_filename, get_item_in_text, init_storage, text_filenames } from "./storage";
 import { build_trie, TrieNode } from "./furigana";
+
+type ZH_CN_Style = Data.ZH_CN_Style;
 
 const AutoRemoveNewLineOptions = ['before_order', 'aggressive', 'off'] as const
 export type AutoRemoveNewLineOption = typeof AutoRemoveNewLineOptions[number]
@@ -25,6 +28,7 @@ export type Config = {
     not_effect_rules: RegExp[],
     ofurus: TrieNode,
     image: ImageConfig,
+    zh_cn_style: ZH_CN_Style,
     set_config: Dispatch<StateUpdater<Config>>
 }
 
@@ -38,6 +42,7 @@ export type Context = {
     disable_refresh: boolean,
     cards: BinaryCard[],
     selected_cards: BinaryCard[],
+    saving: boolean,
     loading?: string,
     set_context: Dispatch<StateUpdater<Context>>
 }
@@ -50,6 +55,7 @@ export let default_config_value: Config = {
     not_effect_rules: transform_not_effect_rules(plain_default_config_value.not_effect_rules),
     ofurus: build_trie(typeof plain_default_config_value.ofurus === 'string' ? plain_default_config_value.ofurus : default_values.config.ofurus),
     image: plain_default_config_value.image ?? default_values.config.image,
+    zh_cn_style: (plain_default_config_value.zh_cn_style ?? default_values.config.zh_cn_style) as any as ZH_CN_Style,
     set_config: null as any,
 }
 
@@ -59,6 +65,10 @@ export async function load_context(callback?: (message: string) => void) {
     let filenames = await text_filenames();
     callback?.(`正在加载卡片数据包: ${package_name} (${filenames.length} 个文件)...`)
     let filename = await current_text_filename();
+    if (filename.endsWith(".cdb")) {
+        let txt_name = filename.substring(0, filename.length - 4) + ".txt"
+        if (filenames.includes(txt_name)) filename = txt_name
+    }
     callback?.(`正在加载卡片数据包: ${package_name} (${filenames.length} 个文件)，当前文件: ${filename}...`)
     let text: string = (await get_item_in_text(filename)) ?? "空卡片(10000) 通常魔法\n似乎找不到卡片。"
     // <Input> only accept \n as new line, but some files may contain \r\n, so we need to replace them before parse.
@@ -98,6 +108,7 @@ export const default_context_value: Context = {
     cards: [],
     
     selected_cards: [],
+    saving: false,
     card_signal: false,
     disable_refresh: false,
     set_context: null as any

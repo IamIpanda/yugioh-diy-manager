@@ -1525,9 +1525,10 @@ export let default_values = {
     "last_package": DEFAULT_PACKAGE_NAME,
     "config": {
 		"auto_remove_newline": 'aggressive',
-        "not_effect_rules": "^[-—].*\n^.{2,4}[:：].*\n^\\(.*\\)$\n^（.*）$\n^.*DoItYourself.*$",
+        "not_effect_rules": "^[-—].*\n^分类[:：].*\n^\\(.*\\)$\n^（.*）$\n^.*DoItYourself.*$",
         "strings": strings,
 		"ofurus": ofurus,
+		"zh_cn_style": 'c1',
 		"image": {
 			render_engine: 'html2canvas' as 'html2canvas' | 'dom-to-image',
 			large_image: true,

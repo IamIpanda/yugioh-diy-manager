@@ -135,3 +135,16 @@ textarea.pendulum-text {
         padding-bottom: 20px;
     }
 }
+
+.ant-modal-root .ant-modal-wrap .ant-modal-header {
+    padding-bottom: 20px;
+}
+
+.ant-modal-root .ant-modal-wrap .ant-modal-body {
+    padding-bottom: 10px;
+}
+
+.full-card-generate-container {
+    justify-content: center;
+    margin-top: 10px;
+}

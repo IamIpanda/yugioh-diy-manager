@@ -82,7 +82,7 @@ async function migrate_package() {
                 // 2025-10-18: Change file name from '.cdb' to '.txt'
                 if (current_storage.config().driver == null) {
                     let keys = await current_storage.keys()
-                    for (let key in keys.filter(key => key.endsWith('.cdb'))) {
+                    for (let key of keys.filter(key => key.endsWith('.cdb'))) {
                         let data = await current_storage.getItem(key)
                         await Promise.all([
                             current_storage.removeItem(key),
@@ -151,7 +151,7 @@ export async function set_text_filename(filename: string) {
 }
 
 export async function text_filenames() {
-    return (await current_storage.keys()).filter((s) => s.endsWith(".cdb") || s.endsWith(".txt"))
+    return (await current_storage.keys()).filter((s) => s.endsWith(".cdb") || s.endsWith(".txt")).sort()
 }
 
 export async function default_text_filename() {

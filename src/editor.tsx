@@ -2,7 +2,7 @@
 import { cloneElement } from "preact";
 import { useContext, useEffect, useState, useRef } from "preact/hooks";
 import { createContext, HTMLProps, ReactElement } from "preact/compat";
-import { Select, InputNumber, Input, Space, SelectProps, Row, Col, GetProps, Modal, Button, Upload, Dropdown, Spin, Image } from 'antd'
+import { Select, InputNumber, Input, Space, SelectProps, Row, Col, GetProps, Modal, Button, Upload, Dropdown, Spin, Image, Checkbox, Flex, Form } from 'antd'
 
 import AceEditor from "react-ace";
 import "ace-builds/src-noconflict/mode-lua";
@@ -17,7 +17,7 @@ import * as transformer from "cdb-transformer";
 import { ofuru } from "./model/furigana";
 import { current_storage } from "./model/storage";
 import { AppContext, ConfigContext, Context, ImageConfig, load_strings } from "./model/context";
-import { ATTRIBUTE_NAMES, Card, EX_TYPES, LINKER_NAMES, PREFIXES, RACE_NAMES, SUB_TYPES, TYPE_NAMES } from "./model/card";
+import { ATTRIBUTE_NAMES, Card, CATEGORY_NAMES, EX_TYPES, LINKER_NAMES, PREFIXES, RACE_NAMES, SUB_TYPES, TYPE_NAMES } from "./model/card";
 
 import { AiOutlineContainer, AiOutlineDelete, AiOutlineDownload, AiOutlineUpload } from "react-icons/ai";
 import "./editor.css"
@@ -82,11 +82,130 @@ function FormItem(props: { name: keyof Card, children: ReactElement } & HTMLProp
     } })
 }
 
-function Form(props: { formValue: any, onValuesChange?: () => void } & HTMLProps<HTMLDivElement>) {
+function CardForm(props: { formValue: any, onValuesChange?: () => void } & HTMLProps<HTMLDivElement>) {
     return <FormContext.Provider value={{ value: props.formValue, hooks: { onValuesChange: props.onValuesChange } }}>
         {/* @ts-ignore */}
         <div {...props}>{props.children}</div>
     </FormContext.Provider>
+}
+
+function MetadataModal(props: { card: Card } & GetProps<typeof Modal>) {
+    let { card, onCancel, ...modal_props } = props
+    let [form] = Form.useForm()
+    let language = Form.useWatch("language", form) ?? "简体中文"
+
+    let metas = card.metas ?? []
+    let initial: Record<string, any> = {
+        language: "简体中文",
+        frame: "默认",
+        newline: "遵循全局",
+        auto_furigana: false,
+        desc_scale_enabled: false,
+        desc_scale: 0,
+        pdesc_scale_enabled: false,
+        pdesc_scale: 0,
+        name_override_enabled: false,
+        name_override: "",
+        zh_cn_style: "",
+        god_frame: "",
+    }
+    for (let m of metas)
+        if (m === "日语" || m === "日文") initial.language = "日语"
+        else if (m === "韩语" || m === "韩文") initial.language = "韩语"
+        else if (m === "全框卡") initial.frame = "全框卡"
+        else if (m === "出框卡") initial.frame = "出框卡"
+        else if (m === "移除回车") initial.newline = "移除回车"
+        else if (m === "移除序号前的回车") initial.newline = "移除序号前的回车"
+        else if (m === "保留回车") initial.newline = "保留回车"
+        else if (m === "自动注音") initial.auto_furigana = true
+        else if (m.startsWith("效果缩放")) { initial.desc_scale_enabled = true; initial.desc_scale = parseFloat(m.substring(5)) }
+        else if (m.startsWith("灵摆缩放")) { initial.pdesc_scale_enabled = true; initial.pdesc_scale = parseFloat(m.substring(5)) }
+        else if (m.startsWith("替换卡名")) { initial.name_override_enabled = true; initial.name_override = m.substring(4) }
+        else if (m === "默认风格") initial.zh_cn_style = "默认风格"
+        else if (m === "映蝶风格") initial.zh_cn_style = "映蝶风格"
+        else if (m === "ygopro风格") initial.zh_cn_style = "ygopro风格"
+        else if (m === "翼神龙") initial.god_frame = "翼神龙"
+        else if (m === "巨神兵") initial.god_frame = "巨神兵"
+        else if (m === "天空龙") initial.god_frame = "天空龙"
+    let exact_keys = ["日语", "日文", "韩语", "韩文", "全框卡", "出框卡", "移除回车", "移除序号前的回车", "保留回车", "自动注音", "默认风格", "映蝶风格", "ygopro风格", "翼神龙", "巨神兵", "天空龙", "winged-dragon", "tormentor", "sky-dragon"]
+    let prefix_keys = ["效果缩放","灵摆缩放","替换卡名"]
+
+    return <Modal {...modal_props} footer={null} title={`编辑 ${card.name}(${card.code}) 元信息`} closable={false} width="400px" destroyOnHidden
+        onCancel={() => {
+            let values = form.getFieldsValue()
+            let metas = (card.metas ?? []).filter((m: string) => !exact_keys.includes(m) && !prefix_keys.some((p) => m.startsWith(p)))
+            let desc_scale_enabled = form.getFieldValue("desc_scale_enabled")
+            let pdesc_scale_enabled = form.getFieldValue("pdesc_scale_enabled")
+            let name_override_enabled = form.getFieldValue("name_override_enabled")
+            if (values.language && values.language !== "简体中文") metas.push(values.language)
+            if (values.frame && values.frame !== "默认") metas.push(values.frame)
+            if (values.newline && values.newline !== "遵循全局") metas.push(values.newline)
+            if (values.auto_furigana) metas.push("自动注音")
+            if (desc_scale_enabled) metas.push(`效果缩放${values.desc_scale}`)
+            if (pdesc_scale_enabled) metas.push(`灵摆缩放${values.pdesc_scale}`)
+            if (name_override_enabled && values.name_override) metas.push(`替换卡名${values.name_override}`)
+            if (values.zh_cn_style) metas.push(values.zh_cn_style)
+            if (values.god_frame) metas.push(values.god_frame)
+            card.metas = metas.length > 0 ? metas : undefined
+            onCancel?.(null as any)
+        }}>
+        <Form form={form} initialValues={initial} labelCol={{ flex: "100px" }} wrapperCol={{ flex: "auto" }}>
+            <Form.Item name="language" label="语言">
+                <Select options={[{ label: '简体中文', value: '简体中文' }, { label: '日语', value: '日语' }, { label: '韩语', value: '韩语' }]} />
+            </Form.Item>
+            <Form.Item name="frame" label="卡框风格">
+                <Select options={[{ label: '默认', value: '默认' }, { label: '全框', value: '全框卡' }, { label: '出框', value: '出框卡' }]} />
+            </Form.Item>
+            <Form.Item name="zh_cn_style" label="简体中文风格">
+                <Select disabled={language !== "简体中文"} options={[
+                    { label: '遵循全局', value: '' },
+                    { label: '默认风格（custom1）', value: '默认风格' },
+                    { label: '映蝶风格（ygo-sc）', value: '映蝶风格' },
+                    { label: 'ygopro风格（custom2）', value: 'ygopro风格' },
+                ]} />
+            </Form.Item>
+            <Form.Item name="newline" label="回车策略">
+                <Select options={[
+                    { label: '遵循全局', value: '遵循全局' }, 
+                    { label: '移除回车', value: '移除回车' }, 
+                    { label: '移除序号前的回车', value: '移除序号前的回车' }, 
+                    { label: '保留回车', value: '保留回车' }
+                ]} />
+            </Form.Item>
+            <Form.Item name="god_frame" label="幻神卡背">
+                <Select options={[
+                    { label: '不使用', value: '' },
+                    { label: '翼神龙', value: '翼神龙' },
+                    { label: '巨神兵', value: '巨神兵' },
+                    { label: '天空龙', value: '天空龙' },
+                ]} />
+            </Form.Item>
+            <Form.Item name="auto_furigana" label="自动注音" valuePropName="checked">
+                <Checkbox disabled={language !== "日语"} />
+            </Form.Item>
+            <Form.Item noStyle shouldUpdate={(p, c) => p.desc_scale_enabled !== c.desc_scale_enabled}>
+                {() =>
+                    <Form.Item label={<Checkbox checked={form.getFieldValue("desc_scale_enabled")} onChange={(e) => form.setFieldValue("desc_scale_enabled", e.target.checked)}>效果缩放</Checkbox>}>
+                        <Form.Item name="desc_scale" noStyle><InputNumber step={0.1} disabled={!form.getFieldValue("desc_scale_enabled")} /></Form.Item>
+                    </Form.Item>
+                }
+            </Form.Item>
+            <Form.Item noStyle shouldUpdate={(p, c) => p.pdesc_scale_enabled !== c.pdesc_scale_enabled}>
+                {() =>
+                    <Form.Item label={<Checkbox checked={form.getFieldValue("pdesc_scale_enabled")} onChange={(e) => form.setFieldValue("pdesc_scale_enabled", e.target.checked)}>灵摆缩放</Checkbox>}>
+                        <Form.Item name="pdesc_scale" noStyle><InputNumber step={0.1} disabled={!form.getFieldValue("pdesc_scale_enabled")} /></Form.Item>
+                    </Form.Item>
+                }
+            </Form.Item>
+            <Form.Item noStyle shouldUpdate={(p, c) => p.name_override_enabled !== c.name_override_enabled}>
+                {() =>
+                    <Form.Item label={<Checkbox checked={form.getFieldValue("name_override_enabled")} onChange={(e) => form.setFieldValue("name_override_enabled", e.target.checked)}>替换卡名</Checkbox>}>
+                        <Form.Item name="name_override" noStyle><Input disabled={!form.getFieldValue("name_override_enabled")} /></Form.Item>
+                    </Form.Item>
+                }
+            </Form.Item>
+        </Form>
+    </Modal>
 }
 
 export function Editor() {
@@ -96,7 +215,7 @@ export function Editor() {
     if (card == null) return <></>;
     
     let [set_names, set_set_names] = useState<Map<number, string>>(new Map())
-    let [dialog, set_dialog] = useState<'image' | 'texts' | 'script' | 'ofuru' | null>(null)
+    let [dialog, set_dialog] = useState<'image' | 'texts' | 'script' | 'ofuru' | 'metadata' | 'category' | null>(null)
     let [editing_text, set_editing_text] = useState('')
 
     let [loading_image, set_loading_image] = useState<number | null>(null)
@@ -178,16 +297,22 @@ export function Editor() {
     }, [])
 
     let card_image_props: {
-        full_frame: boolean;
+        full_frame?: boolean;
+        over_frame?: boolean;
         lang: Data.Language;
         desc_scale: number | undefined;
         pdesc_scale: number | undefined;
-        card?: Card
+        zh_cn_style: Data.ZH_CN_Style | undefined;
+        card?: Card,
+        metas?: any[]
     } = {
         full_frame: false,
+        over_frame: false,
         lang: Data.Language.ZH_CN,
         desc_scale: undefined,
         pdesc_scale: undefined,
+        zh_cn_style: config.zh_cn_style,
+        metas: undefined
     }
     let card_override: Partial<Card> = {}
     let enable_card_proxy = () => {
@@ -202,8 +327,15 @@ export function Editor() {
     if (card.metas)
         for (let meta of card.metas as string[])
             if (meta === "全框卡") card_image_props.full_frame = true;
+            else if (meta === "出框卡") card_image_props.over_frame = true;
             else if (meta === "日语" || meta === "日文") card_image_props.lang = Data.Language.JP;
             else if (meta === "韩语" || meta === "韩文") card_image_props.lang = Data.Language.KR;
+            else if (meta === "默认风格" || meta === "自定义1风格" ) card_image_props.zh_cn_style = Data.ZH_CN_Style.Custom1;
+            else if (meta === "映蝶风格" || meta === "简体中文风格") card_image_props.zh_cn_style = Data.ZH_CN_Style.YD;
+            else if (meta === "ygopro风格" || meta === "自定义2风格") card_image_props.zh_cn_style = Data.ZH_CN_Style.Custom2;
+            else if (meta === "翼神龙") card_image_props.metas = [...(card_image_props.metas ?? []), "winged-dragon"];
+            else if (meta === "巨神兵") card_image_props.metas = [...(card_image_props.metas ?? []), "tormentor"];
+            else if (meta === "天空龙") card_image_props.metas = [...(card_image_props.metas ?? []), "sky-dragon"];
             else if (meta.startsWith("效果缩放")) {
                 let scale = parseFloat(meta.substring(5));
                 if (!isNaN(scale)) card_image_props.desc_scale = scale;
@@ -244,7 +376,7 @@ export function Editor() {
         //card_override.desc = lines.map((line) => line.startsWith('●') ? '\n' + line + '\n' : line).join('').replace(/\n\n/g, "\n");
     }
 
-    return <Form className="editor" formValue={card} onValuesChange={send_card_signal}>
+    return <CardForm className="editor" formValue={card} onValuesChange={send_card_signal}>
         <Row gutter={12} className="panel-container">
             <Col span={12} xs={24} sm={24} md={24} lg={24} xl={12} xxl={12} className="full-width card-image-container" style={use_full_image ? { "textAlign": 'center' } : undefined}>
                 <Spin wrapperClassName="card-image-wrapper" spinning={loading_image != null} delay={200}>
@@ -297,7 +429,21 @@ export function Editor() {
                     <FormItem name='setcode4'><Select2 allowClear popupMatchSelectWidth={180} options={Array.from(set_names.entries()).map((v) => ({ label: v[1], value: v[0] }))} /></FormItem>
                 </Line>
                 <Line>
-                    <Button onClick={() => { set_editing_text(card.texts.join("\n")); set_dialog('texts')} }>提示文本</Button>
+                    <Dropdown menu={{
+                        items: [
+                            {
+                                key: 'metadata',
+                                label: '元信息',
+                                onClick: () => { set_dialog('metadata') }
+                            }, {
+                                key: 'category',
+                                label: '效果分类',
+                                onClick: () => { set_dialog('category') }
+                            }
+                        ]
+                    }}>
+                        <Button onClick={() => { set_editing_text(card.texts.join("\n")); set_dialog('texts')} }>提示文本</Button>
+                    </Dropdown>
                     <Dropdown menu={{
                         items: [
                             {
@@ -372,17 +518,26 @@ export function Editor() {
         </Row>
         <Modal open={dialog == 'image'} onCancel={() => set_dialog(null)} footer={null} width={1434} height={2071} closable={false} destroyOnHidden>
             <CardImage id="full-card" extend card={card} image={center_image} asset_prefix={import.meta.env.BASE_URL + "assets"} style={{ width: '1394px',height: '2031px' }} {...card_image_props} />
+            <Flex className="full-width full-card-generate-container">
+                { center_image && <Button id="full-card-generate" onClick={() => { 
+                    set_generating_image(true);
+                    generate_image(card.code, config.image).then(() => {
+                        set_generating_image(false)
+                        set_dialog(null)
+                        refresh_image(true)
+                });}}>生成全图</Button> }
+            </Flex>
         </Modal>
         <Modal open={generating_image && config.image.large_image} footer={null} title={null} closable={false} width={1394*config.image.scale+50} height={2031*config.image.scale+50} destroyOnHidden>
             <Spin spinning={generating_image} tip="正在生成全图，请稍候..." >
                 <CardImage id="full-card" extend card={card} image={center_image} asset_prefix={import.meta.env.BASE_URL + "assets"} style={{ width: `${1394*config.image.scale}px`,height: `${2031*config.image.scale}px` }} {...card_image_props} />
             </Spin>
         </Modal>
-        <Modal open={dialog == 'texts'} footer={null} title="提示文本" closable={false} destroyOnHidden 
-            onCancel={() => { card.texts = editing_text.split("\n"); send_card_signal(); set_dialog(null) }} >
+        <Modal open={dialog == 'texts'} footer={null} title={`编辑 ${card.name}(${card.code}) 提示文本`} closable={false} destroyOnHidden 
+            onCancel={() => { card.texts = editing_text.trim().length === 0 ? [] : editing_text.split("\n"); send_card_signal(); set_dialog(null) }} >
             <Input.TextArea style={{ height: '600px' }} defaultValue={editing_text} onChange={(e) => set_editing_text((e.target as any).value)} />
         </Modal>
-        <Modal open={dialog == 'script'} footer={null} title={`卡片脚本 ${card.name}(${card.code})`} closable={false} width="100%" style={{ maxWidth: '1400px' }} destroyOnHidden
+        <Modal open={dialog == 'script'} footer={null} title={`编辑 ${card.name}(${card.code}) 卡片脚本`} closable={false} width="100%" style={{ maxWidth: '1400px' }} destroyOnHidden
             onCancel={() => {
                 let lua_path = `script/c${card.code}.lua`
                 if (editing_text === "")
@@ -402,7 +557,7 @@ export function Editor() {
                 showPrintMargin={true}
                 showGutter={true}
                 highlightActiveLine={true}
-                style={{ width: '100%', height: '80vw', maxHeight: '900px', margin: '20px 0 10px 0' }}
+                style={{ width: '100%', height: '80vw', maxHeight: '900px' }}
                 defaultValue={editing_text}
                 setOptions={{
                     enableBasicAutocompletion: true,
@@ -415,7 +570,22 @@ export function Editor() {
 
             {/*<Input.TextArea style={{ height: '80vw', maxHeight: '900px' }} placeholder={"脚本未创建..."} defaultValue={editing_text} onChange={(e) => set_editing_text((e.target as any).value)} />*/}
         </Modal>
-    </Form>
+        <MetadataModal open={dialog == 'metadata'} card={card} onCancel={() => { send_card_signal(); set_dialog(null); }} />
+        <Modal open={dialog == 'category'} footer={null} title={`编辑 ${card.name}(${card.code}) 效果分类`} closable={false} width="300px" destroyOnHidden onCancel={() => set_dialog(null)}>
+            <Flex vertical gap={4}>
+                {Array.from(CATEGORY_NAMES.entries()).map(([bit, name]) => (
+                    <Checkbox key={bit}checked={Boolean(Number(card.category) & bit)}
+                        onChange={() => {
+                            let new_category = Number(card.category) ^ bit;
+                            card.category = BigInt(new_category);
+                            send_card_signal();
+                        }}>
+                        {name}
+                    </Checkbox>
+                ))}
+            </Flex>
+        </Modal>
+    </CardForm>
 }
 
 function read_as_buffer(file: File) {

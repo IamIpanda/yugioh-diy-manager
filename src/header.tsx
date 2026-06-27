@@ -34,6 +34,7 @@ const config = useContext(ConfigContext);
     const [package_strings, set_package_strings] = useState("")
     const [loading_internal_strings, set_loading_internal_strings] = useState(false)
     const [not_effect_rules, set_not_effect_rules] = useState("")
+    const [zh_cn_style, set_zh_cn_style] = useState(config.zh_cn_style)
     
     const [text_form] = Form.useForm<{ auto_remove_newline: AutoRemoveNewLineOption }>()
     const [image_form] = Form.useForm<typeof config.image>()
@@ -45,6 +46,7 @@ const config = useContext(ConfigContext);
         localforage.getItem("config").then((c) => {
             set_not_effect_rules((c as any ?? {}).not_effect_rules)
             set_ofurus((c as any ?? {}).ofurus ?? default_values.config.ofurus)
+            set_zh_cn_style((c as any ?? {}).zh_cn_style ?? config.zh_cn_style)
         })
         current_storage.getItem("strings.conf").then((c) => set_package_strings(c as string ?? ""), () => set_package_strings(""))
     }, [prop.is_open])
@@ -56,9 +58,10 @@ const config = useContext(ConfigContext);
             strings: internal_strings, 
             not_effect_rules: transform_not_effect_rules(not_effect_rules),
             ofurus: build_trie(ofurus),
-            image: image
+            image: image,
+            zh_cn_style,
         })
-        let save_config: any = { ...config, strings: internal_strings, ofurus, not_effect_rules, auto_remove_newline, image }
+        let save_config: any = { ...config, strings: internal_strings, ofurus, not_effect_rules, auto_remove_newline, image, zh_cn_style }
         delete save_config.set_config
         await localforage.setItem("config", save_config)
         try {
@@ -141,6 +144,21 @@ const config = useContext(ConfigContext);
                     if (use_package) set_package_strings(e.currentTarget.value)
                     else set_internal_strings(e.currentTarget.value)
                 }} />
+            </Flex>,
+        },
+        {
+            key: 'zh_cn_style',
+            label: '简体中文风格',
+            children: <Flex vertical>
+                <Typography.Text>默认字体风格:</Typography.Text>
+                <HeightSpace height='5px' />
+                <Select value={zh_cn_style}
+                    onChange={(v) => set_zh_cn_style(v)}
+                    options={[
+                        { label: '默认风格（custom1）', value: 'c1' },
+                        { label: '映蝶风格（ygo-sc）', value: 'yd' },
+                        { label: 'ygopro风格（custom2）', value: 'c2' },
+                    ]} />
             </Flex>,
         },
         {

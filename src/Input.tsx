@@ -1,6 +1,8 @@
+
 import { useContext, useEffect, useRef, useState } from "react";
-import { Table, Modal, Input, GetRef, FloatButton, TableColumnsType, GetProps, Alert, Button } from "antd";
-import { AiFillSound, AiOutlineGroup } from "react-icons/ai";
+import dayjs from 'dayjs'
+import { Table, Modal, Input, GetRef, TableColumnsType, GetProps, Alert, Button, Tooltip } from "antd";
+import { AiFillSound, AiOutlineGroup, AiOutlineSave } from "react-icons/ai";
 
 import { parse, Card, format } from 'cdb-transformer'
 import { transform_card_data } from "./model/card";
@@ -18,62 +20,112 @@ function TextInput() {
     let context = useContext(AppContext)
     let config = useContext(ConfigContext)
 
-    let [diff, set_diff] = useState<any>()
     let [cursor, set_cursor] = useState(0)
     let [dialog, set_dialog] = useState<'category' | 'ofuru' | null>(null)
+    let [lastSaved, set_lastSaved] = useState<dayjs.Dayjs | null>(null)
     let [text, set_text] = useState(context.text);
-    let [force_refresh, fuck] = useState(false);
 
     let main_input = useRef<GetRef<typeof Input>>(null)
+    let current_card_ref = useRef<Card | undefined>()
+    let parse_timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    let cursor_raf = useRef(0)
+    let needs_refresh = useRef(false)
+    let text_ref = useRef(text)
+    let context_ref = useRef(context)
+    text_ref.current = text
+    context_ref.current = context
 
-    const refresh = () => {
-        if (!diff) return;
-        let cards = parse(text)
-        context.set_context({...context, text, cards})
-        set_diff(null)
+    const scheduleRefresh = (delay = 1000) => {
+        needs_refresh.current = true
+        if (parse_timer.current != null) clearTimeout(parse_timer.current)
+        parse_timer.current = setTimeout(() => {
+            parse_timer.current = null
+            if (!needs_refresh.current) return
+            needs_refresh.current = false
+            let t = text_ref.current
+            let cards = parse(t)
+            let ctx = context_ref.current
+            ctx.set_context({...ctx, text: t, cards})
+        }, delay)
     }
-    useEffect(() => {
-        let n = setInterval(refresh, 1000);
-        return () => clearInterval(n);
-    })
-    useEffect(refresh, [force_refresh])
-    useEffect(() => set_text(context.text), [context.text])
+
+    const save = () => {
+        let ctx = context_ref.current
+        ctx.set_context({...ctx, text: text_ref.current, saving: true})
+    }
+
+    useEffect(() => () => { if (parse_timer.current != null) clearTimeout(parse_timer.current) }, [])
+    useEffect(() => { if (context.text !== text_ref.current) set_text(context.text) }, [context.text])
     useEffect(() => {
         if (context.cards.length == 0) return;
         let _card = context.cards.find((card) => card.range != null && card.range.start <= cursor && card.range.end >= cursor)
-        if (_card != null) context.set_context({...context, card: transform_card_data(_card, config.not_effect_rules)})
+        if (_card != null && _card !== current_card_ref.current) {
+            current_card_ref.current = _card;
+            let new_card = transform_card_data(_card, config.not_effect_rules)
+            context.set_context({...context, card: new_card})
+        }
     }, [context.cards, cursor])
-    const handler = () => {
-        let element = (main_input.current as any).resizableTextArea.textArea;
-        if (element === document.activeElement) set_cursor(element.selectionStart); 
-    }
     useEffect(() => {
-        if (main_input.current == null) return
-        document.addEventListener('selectionchange', handler)
-        return () => document.removeEventListener("selectionchange", handler)
-    }, [main_input.current])
-    useEffect(() => {
-        if (context.card == null || diff) return
+        if (context.card == null || needs_refresh.current) return
         let new_text = format(context.card);
         let range = context.card.range!;
         let end = range.end + (context.card.length_fix ?? 0)
         set_text(text.slice(0, range.start) + new_text + "\n" + text.slice(end, text.length))
         context.card.length_fix = new_text.length - (range.end - range.start) + 1
         if (context.disable_refresh) return;
-        set_diff(true)
-        fuck(!force_refresh)
-    }, [context.card_signal]) 
+        scheduleRefresh()
+    }, [context.card_signal])
+
+    const handler = () => {
+        let element = (main_input.current as any)?.resizableTextArea?.textArea;
+        if (element === document.activeElement) {
+            cancelAnimationFrame(cursor_raf.current);
+            cursor_raf.current = requestAnimationFrame(() => {
+                set_cursor(element.selectionStart);
+            });
+        }
+    }
+    useEffect(() => {
+        if (main_input.current == null) return
+        document.addEventListener('selectionchange', handler)
+        return () => {
+            document.removeEventListener("selectionchange", handler)
+            cancelAnimationFrame(cursor_raf.current)
+        }
+    }, [main_input.current])
+
+    useEffect(() => { if (!context.saving && context.filename) set_lastSaved(dayjs()) }, [context.saving])
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault()
+                save()
+            }
+        }
+        document.addEventListener('keydown', onKeyDown)
+        return () => document.removeEventListener('keydown', onKeyDown)
+    }, [])
+    
     return <div class="full" id="input">
     <Input.TextArea 
         id="text-area" placeholder="在此输入卡片文本..." className="text full"
             value={text} ref={main_input}
-            onChange={(e) => { set_text(e.currentTarget.value); set_diff(true); } }
+            onChange={(e) => { set_text(e.currentTarget.value); scheduleRefresh(); } }
         style={{ height: '100%' }}
     />
-    {/* @ts-ignore */}
-    <FloatButton className="button-category" icon={<AiOutlineGroup />} tooltip="卡片目录" onClick={() => { set_dialog('category') }} />
-    {/* @ts-ignore */}
-    {context.card && context.card?.metas?.indexOf("日语") >= 0 && <FloatButton className="button-category-2" icon={<AiFillSound/>} tooltip="注音" onClick={() => { set_dialog('ofuru') }} />}
+    <div class="input-toolbar">
+        <Tooltip title={context.saving ? '保存中...' : <div>保存 (Ctrl+S){lastSaved ? <><br />上次保存: {lastSaved.format("HH:mm:ss")}</> : ''}</div>}>
+            <Button type="text" size="small" icon={<AiOutlineSave />} loading={context.saving} onClick={save} />
+        </Tooltip>
+        <Tooltip title="卡片目录">
+            <Button type="text" size="small" icon={<AiOutlineGroup />} onClick={() => set_dialog('category')} />
+        </Tooltip>
+        {context.card && context.card?.metas?.indexOf("日语") >= 0 && (
+            <Tooltip title="注音">
+                <Button type="text" size="small" icon={<AiFillSound />} onClick={() => set_dialog('ofuru')} />
+            </Tooltip>
+        )}
+    </div>
     
     <CategoryModal open={dialog === 'category'} onCancel={() => set_dialog(null)} onOk={
         (record: Card) => {
