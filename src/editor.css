@@ -126,8 +126,24 @@ textarea.pendulum-text {
     transition: all 0.3s, height 0s;
 }
 
-#script:hover, #script:focus {
+#script:hover, #script:focus-within {
     border-color: #4096ff;
+}
+
+.ant-modal-root .script-modal .ant-modal-content .ant-modal-header {
+    padding-bottom: 2px;
+}
+
+.script-modal .ant-collapse-header h4 {
+    margin: 0;
+}
+
+.script-modal .ant-collapse-header .ant-collapse-expand-icon {
+    margin-top: 3px;
+}
+
+.script-modal .ant-typography {
+    white-space: pre-wrap;
 }
 
 @media (max-width: 992px) {

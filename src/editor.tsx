@@ -2,14 +2,14 @@
 import { cloneElement } from "preact";
 import { useContext, useEffect, useState, useRef } from "preact/hooks";
 import { createContext, HTMLProps, ReactElement } from "preact/compat";
-import { Select, InputNumber, Input, Space, SelectProps, Row, Col, GetProps, Modal, Button, Upload, Dropdown, Spin, Image, Checkbox, Flex, Form } from 'antd'
+import { Select, InputNumber, Input, Space, SelectProps, Row, Col, GetProps, Modal, Button, Upload, Dropdown, Spin, Image, Checkbox, Flex, Form, Typography, Collapse } from 'antd'
 
-import AceEditor from "react-ace";
-import "ace-builds/src-noconflict/mode-lua";
-import "ace-builds/src-noconflict/theme-github";
+import MonacoEditor from "@monaco-editor/react";
 import html2canvas from "html2canvas";
 import domtoimage from 'dom-to-image'
 import ImgCrop from "antd-img-crop";
+
+import "./monaco";
 
 import { Card as CardImage, Data } from "yugioh-card-react";
 import * as transformer from "cdb-transformer";
@@ -21,6 +21,7 @@ import { ATTRIBUTE_NAMES, Card, CATEGORY_NAMES, EX_TYPES, LINKER_NAMES, PREFIXES
 
 import { AiOutlineContainer, AiOutlineDelete, AiOutlineDownload, AiOutlineUpload } from "react-icons/ai";
 import "./editor.css"
+import { DEFAULT_SCRIPT } from "./model/default";
 
 const SUB_TYPE_OPTIONS = new Map(Array.from(TYPE_NAMES).filter((p) => p[0] != 0 && (p[0] & SUB_TYPES) > 0).map((p) => [p[0], { label: p[1], value: p[0] }]))
 
@@ -146,7 +147,7 @@ function MetadataModal(props: { card: Card } & GetProps<typeof Modal>) {
             if (name_override_enabled && values.name_override) metas.push(`替换卡名${values.name_override}`)
             if (values.zh_cn_style) metas.push(values.zh_cn_style)
             if (values.god_frame) metas.push(values.god_frame)
-            card.metas = metas.length > 0 ? metas : undefined
+            card.metas = metas.length > 0 ? metas : undefined as any
             onCancel?.(null as any)
         }}>
         <Form form={form} initialValues={initial} labelCol={{ flex: "100px" }} wrapperCol={{ flex: "auto" }}>
@@ -392,7 +393,7 @@ export function Editor() {
                             style={{ height: '100%', margin: 'auto' }} 
                             onClick={() => set_dialog('image') }
                             {...card_image_props}
-                        />
+                />
                 }
                 </Spin>
             </Col>
@@ -500,7 +501,14 @@ export function Editor() {
                                 onClick: () => delete_center_image(card.code).then(() => refresh_center_image(true))
                             }]
                     }}><Button type={use_full_image ? undefined : 'primary'} onClick={() => set_use_full_image(false)}>中心图</Button></Dropdown>
-                    <Button onClick={() => { current_storage.getItem(`script/c${card.code}.lua`).then((s) => { set_editing_text(s as string); set_dialog('script') }) }}>脚本</Button>
+                    <Button onClick={() => { 
+                        current_storage.getItem(`script/c${card.code}.lua`).then((s) => {
+                            let str = s as string
+                            if (str == null || str.trim().length === 0) 
+                                str = DEFAULT_SCRIPT.replace("{CODE}", card.code.toString()).replace("{NAME}", card.name)
+                            set_editing_text(str); 
+                            set_dialog('script') 
+                        }) }}>脚本</Button>
                 </Line>
             </Col>
         </Row>
@@ -520,9 +528,7 @@ export function Editor() {
             <CardImage id="full-card" extend card={card} image={center_image} asset_prefix={import.meta.env.BASE_URL + "assets"} style={{ width: '1394px',height: '2031px' }} {...card_image_props} />
             <Flex className="full-width full-card-generate-container">
                 { center_image && <Button id="full-card-generate" onClick={() => { 
-                    set_generating_image(true);
                     generate_image(card.code, config.image).then(() => {
-                        set_generating_image(false)
                         set_dialog(null)
                         refresh_image(true)
                 });}}>生成全图</Button> }
@@ -537,7 +543,7 @@ export function Editor() {
             onCancel={() => { card.texts = editing_text.trim().length === 0 ? [] : editing_text.split("\n"); send_card_signal(); set_dialog(null) }} >
             <Input.TextArea style={{ height: '600px' }} defaultValue={editing_text} onChange={(e) => set_editing_text((e.target as any).value)} />
         </Modal>
-        <Modal open={dialog == 'script'} footer={null} title={`编辑 ${card.name}(${card.code}) 卡片脚本`} closable={false} width="100%" style={{ maxWidth: '1400px' }} destroyOnHidden
+        <Modal open={dialog == 'script'} footer={null} className="script-modal" closable={false} width="100%" style={{ maxWidth: '1400px' }} destroyOnHidden
             onCancel={() => {
                 let lua_path = `script/c${card.code}.lua`
                 if (editing_text === "")
@@ -545,28 +551,30 @@ export function Editor() {
                 current_storage.setItem(lua_path, editing_text); 
                 set_dialog(null) 
             }}>
-            <AceEditor
-                placeholder="脚本未创建..."
-                mode="lua"
-                theme="github"
-                name="script"
-                onChange={(t) => set_editing_text(t)}
-                fontSize={14}
-                lineHeight={19}
-                tabSize={8}
-                showPrintMargin={true}
-                showGutter={true}
-                highlightActiveLine={true}
-                style={{ width: '100%', height: '80vw', maxHeight: '900px' }}
-                defaultValue={editing_text}
-                setOptions={{
-                    enableBasicAutocompletion: true,
-                    enableLiveAutocompletion: true,
-                    enableSnippets: false,
-                    enableMobileMenu: true,
-                    showLineNumbers: true,
-                    tabSize: 2,
-                }} />
+            {card.range && <Collapse ghost items={[{ 
+                label: <Typography.Title level={4}>编辑 {card.name}({card.code}) 卡片脚本</Typography.Title>, 
+                children: <Typography.Paragraph>{context.text.slice(card.range.start, card.range.end)}</Typography.Paragraph>
+            }]} />}
+            <div id="script" style={{ width: '100%', height: '70vh', maxHeight: '1200px' }}>
+                <MonacoEditor
+                    language="lua"
+                    theme="vs"
+                    defaultValue={editing_text}
+                    onChange={(value) => set_editing_text(value ?? "")}
+                    loading={<Spin />}
+                    options={{
+                        fontSize: 14,
+                        lineHeight: 19,
+                        tabSize: 2,
+                        rulers: [80],
+                        lineNumbers: "on",
+                        renderLineHighlight: "line",
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        automaticLayout: true,
+                    }}
+                />
+            </div>
 
             {/*<Input.TextArea style={{ height: '80vw', maxHeight: '900px' }} placeholder={"脚本未创建..."} defaultValue={editing_text} onChange={(e) => set_editing_text((e.target as any).value)} />*/}
         </Modal>

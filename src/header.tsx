@@ -1,5 +1,5 @@
 import { Dispatch, StateUpdater, useContext, useEffect, useRef, useState } from 'preact/hooks'
-import { Flex, Modal, Upload, Tooltip, Button, Typography, Space, Input, GetProps, Dropdown, Table, Switch, InputRef, TreeDataNode, Tree, Form, Spin, Alert, Checkbox, Select, Collapse, InputNumber } from 'antd';
+import { Flex, Modal, Upload, Tooltip, Button, Typography, Space, Input, GetProps, Dropdown, Table, Switch, InputRef, TreeDataNode, Tree, Form, Spin, Alert, Checkbox, Select, Collapse, InputNumber, Tabs } from 'antd';
 import { AiOutlineDownload, AiOutlineQuestionCircle, AiOutlineSetting, AiOutlineUpload, AiOutlineFolderOpen, AiOutlineDatabase, AiOutlineDelete, AiOutlineRedo, AiFillCheckCircle, AiOutlineUnorderedList, AiOutlineFolderAdd, AiOutlineFileText, AiOutlineCloudServer } from "react-icons/ai";
 import { RiArchiveStackLine, RiDownloadCloud2Line } from "react-icons/ri";
 import { VscDebug } from 'react-icons/vsc';
@@ -15,7 +15,6 @@ import { generate_from_text, transform_not_effect_rules } from './model/card'
 import { AppContext, ConfigContext, Context, load_strings, load_context, reload_context, AutoRemoveNewLineOption } from './model/context'
 import { accept_database, accept_package, current_package_name, current_storage, delete_package, dump, generate_package, generate_package_name_from_filename, load_default_package, package_list, set_package, set_text_filename } from './model/storage';
 
-import { html as Doc } from './assets/help.md'
 
 import "./header.css"
 
@@ -38,9 +37,11 @@ const config = useContext(ConfigContext);
     
     const [text_form] = Form.useForm<{ auto_remove_newline: AutoRemoveNewLineOption }>()
     const [image_form] = Form.useForm<typeof config.image>()
+    const [history_form] = Form.useForm<typeof config.history>()
     const render_engine = Form.useWatch('render_engine', image_form)
     const large_image = Form.useWatch('large_image', image_form)
     const auto_remove_newline = Form.useWatch('auto_remove_newline', text_form)
+    const history_enabled = Form.useWatch('enabled', history_form)
 
     useEffect(() => {
         localforage.getItem("config").then((c) => {
@@ -52,6 +53,7 @@ const config = useContext(ConfigContext);
     }, [prop.is_open])
     const on_close = async () => {
         let image = image_form.getFieldsValue(true)
+        let history = history_form.getFieldsValue(true)
         config.set_config({ 
             ...config, 
             auto_remove_newline,
@@ -60,8 +62,9 @@ const config = useContext(ConfigContext);
             ofurus: build_trie(ofurus),
             image: image,
             zh_cn_style,
+            history,
         })
-        let save_config: any = { ...config, strings: internal_strings, ofurus, not_effect_rules, auto_remove_newline, image, zh_cn_style }
+        let save_config: any = { ...config, strings: internal_strings, ofurus, not_effect_rules, auto_remove_newline, image, zh_cn_style, history }
         delete save_config.set_config
         await localforage.setItem("config", save_config)
         try {
@@ -169,6 +172,21 @@ const config = useContext(ConfigContext);
                 <HeightSpace height='5px' />
                 <Input.TextArea value={ofurus} onChange={(e) => set_ofurus(e.currentTarget.value)} />
             </Flex>
+        },
+        {
+            key: 'history',
+            label: '历史记录',
+            children: <Form<typeof config.history> form={history_form} initialValues={config.history}>
+                <Form.Item label="启用历史记录：" name="enabled" valuePropName="checked">
+                    <Switch />
+                </Form.Item>
+                <Form.Item layout='vertical' label="最多保存历史记录条数：" name="max_count" extra="0 为不限制">
+                    <InputNumber min={0} max={9999} step={1} disabled={!history_enabled} />
+                </Form.Item>
+                <Form.Item layout='vertical' label="最小历史记录间隔（秒）：" name="min_interval" extra="两次保存至少间隔多少秒才记录新快照">
+                    <InputNumber min={0} max={86400} step={1} disabled={!history_enabled} />
+                </Form.Item>
+            </Form>,
         }
     ];
 
@@ -196,7 +214,7 @@ function PackagesModal(props: GetProps<typeof Modal>) {
         props.onCancel?.call(null, null as any)
         await reload_context(context)
     }
-    return <Modal title="卡包" footer={null} closable={false} {...props} destroyOnClose>
+    return <Modal title="卡包" footer={null} closable={false} {...props} destroyOnHidden>
         <Table
             dataSource={packages}
             pagination={false}
@@ -305,7 +323,7 @@ function OpenDavModal(props: Omit<GetProps<typeof Modal>, 'onOk'> & { onOk: (nam
     }
     return <Modal title="从WebDav打开"
                 closable={false}
-                destroyOnClose
+                destroyOnHidden
                 footer={<>
                     <Button disabled={loading} onClick={() => { fetch_nodes() }}>测试</Button>
                     <Button disabled={loading} onClick={() => { on_ok() }} type='primary'>确定</Button>
@@ -340,8 +358,27 @@ function FileModal(props: GetProps<typeof Modal>) {
 
 
 function HelpModal(props: GetProps<typeof Modal>) {
+    const HELP_TABS = [
+        { key: 'intro', label: '卡包编辑器' },
+        { key: 'changelog', label: '更新日志' },
+        { key: 'guide', label: '操作指南' },
+        { key: 'format', label: '文本格式' },
+        { key: 'meta', label: '元信息' },
+        { key: 'about', label: '关于' },
+    ]
+    const helpModules = import.meta.glob('./assets/help/*.md', { eager: true, import: 'html' }) as Record<string, string>
     return <Modal title={null} footer={null} closable={false} {...props}>
-        <Typography dangerouslySetInnerHTML={{ __html: Doc.replace("{{BUILD_DATE}}", BUILD_DATE).replace("{{PACKAGE_VERSION}}",PACKAGE_VERSION) }} />
+        <Tabs
+            tabPosition="left"
+            items={HELP_TABS.map(({ key, label }) => {
+                const content = helpModules[`./assets/help/${key}.md`] ?? ''
+                return {
+                    key,
+                    label,
+                    children: <Typography dangerouslySetInnerHTML={{ __html: content.replace("{{BUILD_DATE}}", BUILD_DATE).replace("{{PACKAGE_VERSION}}", PACKAGE_VERSION) }} />
+                }
+            })}
+        />
     </Modal>
 }
 
@@ -396,7 +433,17 @@ function DownloadMenu() {
     }]
 }
 
-function PackageMenu(set_dialog: Dispatch<StateUpdater<string | null>>) {
+async function open_fsa(context: Context) {
+    const directoryHandle = await window.showDirectoryPicker()
+    let name = directoryHandle.name
+    if (name === DEFAULT_PACKAGE_NAME)
+        name = Math.random().toString(36).slice(2)
+    const config = { driver: 'fsa', directoryHandle }
+    await set_package(name, config)
+    await reload_context(context)
+}
+
+function PackageMenu(set_dialog: Dispatch<StateUpdater<string | null>>, context: Context) {
     return [{
         key: 'new',
         label: '新建卡包',
@@ -407,6 +454,12 @@ function PackageMenu(set_dialog: Dispatch<StateUpdater<string | null>>) {
         label: '从WebDav打开',
         icon: <AiOutlineCloudServer />,
         onClick: () => set_dialog('open_dav')
+    }, {
+        key: 'open-fsa',
+        label: '从本地打开',
+        icon: <AiOutlineFolderOpen />,
+        onClick: () => open_fsa(context),
+        disabled: !localforage.supports('fsa')
     }, {
         key: 'menu',
         label: '卡包列表',
@@ -612,7 +665,7 @@ export function Header() {
         <Space>
             <Tooltip title='上传并新建'><UploadWrapper><Button aria-label='upload' variant='link' icon={<AiOutlineUpload />} /></UploadWrapper></Tooltip>
             <Dropdown menu={{ items: DownloadMenu() }}><Button aria-label='download' variant='link' icon={<AiOutlineDownload />} /></Dropdown>
-            <Dropdown menu={{ items: PackageMenu(set_dialog) }}><Button aria-label='packages' variant='link' icon={<AiOutlineFolderOpen />}></Button></Dropdown>
+            <Dropdown menu={{ items: PackageMenu(set_dialog, context) }}><Button aria-label='packages' variant='link' icon={<AiOutlineFolderOpen />}></Button></Dropdown>
             <Tooltip title='帮助'><Button aria-label='help' variant='link' onClick={() => set_dialog("help")} icon={<AiOutlineQuestionCircle />} /></Tooltip>
             <Tooltip title='设置'><Button aria-label='settings' variant='link' onClick={() => set_dialog("settings")} icon={<AiOutlineSetting />} /></Tooltip >
             <SettingsModal is_open={dialog == 'settings'} on_close={() => { set_dialog(null) }} />

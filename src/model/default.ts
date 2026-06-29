@@ -1519,6 +1519,14 @@ end
 `.trim()
 }
 
+export const DEFAULT_SCRIPT = `
+-- {NAME}
+local s,id,o=GetID()
+function s.initial_effect(c)
+
+end
+`.trim()
+
 export const DEFAULT_PACKAGE_NAME = 'MyDIY'
 export let default_values = {
 	"packages": { [DEFAULT_PACKAGE_NAME]: { variable: { last_text_filename: DEFAULT_PACKAGE_NAME + ".txt", data_version: 1 } }},
@@ -1528,7 +1536,12 @@ export let default_values = {
         "not_effect_rules": "^[-—].*\n^分类[:：].*\n^\\(.*\\)$\n^（.*）$\n^.*DoItYourself.*$",
         "strings": strings,
 		"ofurus": ofurus,
-		"zh_cn_style": 'c1',
+        "zh_cn_style": 'c1',
+        "history": {
+            "enabled": true,
+            "max_count": 10,
+            "min_interval": 120
+        },
 		"image": {
 			render_engine: 'html2canvas' as 'html2canvas' | 'dom-to-image',
 			large_image: true,

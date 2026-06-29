@@ -36,3 +36,28 @@
 .ant-input.ofuru-input {
     height: 400px;
 }
+
+.card-history-modal {
+    height: 80vh;
+}
+
+.card-history-modal .history-sidebar {
+    max-height: 60vh;
+    overflow-y: auto;
+    border-right: 1px solid var(--ant-color-border-secondary, #f0f0f0);
+}
+
+.card-history-modal .history-entry {
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.card-history-modal .history-entry.active {
+    background: var(--ant-color-primary-bg, #e6f4ff);
+}
+
+.card-history-modal .history-restore {
+    margin-top: 12px;
+    text-align: right;
+}

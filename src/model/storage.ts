@@ -5,6 +5,7 @@ import { BlobReader, BlobWriter, Entry, TextReader, TextWriter, ZipReader, ZipWr
 import { DEFAULT_PACKAGE_NAME, default_values, mydiy_values } from "./default"
 import { generate_from_text, read_from_array_buffer } from "./card";
 import "./webdav"
+import "./fsa"
 
 const MAGIC_VERSION_FIELD_NAME = "data_version"
 const CURRENT_DATA_VERSION = 1;
@@ -151,7 +152,7 @@ export async function set_text_filename(filename: string) {
 }
 
 export async function text_filenames() {
-    return (await current_storage.keys()).filter((s) => s.endsWith(".cdb") || s.endsWith(".txt")).sort()
+    return (await current_storage.keys()).filter((s) => !s.startsWith(".history/") && (s.endsWith(".cdb") || s.endsWith(".txt"))).sort()
 }
 
 export async function default_text_filename() {
@@ -270,7 +271,7 @@ export async function generate_package(files?: Record<string, string>, callback?
 
 async function _get_item_in(key: string, form: 'text' | 'binary'): Promise<string | ArrayBufferLike> {
     let text = (await current_storage.getItem(key) as string) ?? ""
-    if (current_storage.driver().trim() == 'webdav' && text.startsWith("SQLite format")) {
+    if ((current_storage.driver().trim() == 'webdav' || current_storage.driver().trim() == 'fsa') && text.startsWith("SQLite format")) {
         let binary = await current_storage.getItem(key + "@binary") as ArrayBuffer
         if (form == 'text')
             return read_from_array_buffer(binary).map(format).join("\n\n")

@@ -1,14 +1,16 @@
 
 import { useContext, useEffect, useRef, useState } from "react";
 import dayjs from 'dayjs'
-import { Table, Modal, Input, GetRef, TableColumnsType, GetProps, Alert, Button, Tooltip } from "antd";
-import { AiFillSound, AiOutlineGroup, AiOutlineSave } from "react-icons/ai";
+import { Table, Modal, Input, GetRef, TableColumnsType, GetProps, Alert, Button, Tooltip, Row, Col, Spin, Switch } from "antd";
+import { AiFillSound, AiOutlineGroup, AiOutlineSave, AiOutlineHistory } from "react-icons/ai";
+import { DiffEditor } from "@monaco-editor/react";
 
 import { parse, Card, format } from 'cdb-transformer'
 import { transform_card_data } from "./model/card";
 import { AppContext, ConfigContext } from "./model/context";
 import { ofuru } from "./model/furigana";
-
+import { list_history, history_timestamp } from "./model/history";
+import { current_storage } from "./model/storage";
 import "./input.css"
 
 const CARD_SEARCH_COLUMNS: TableColumnsType<Card> = [
@@ -21,7 +23,7 @@ function TextInput() {
     let config = useContext(ConfigContext)
 
     let [cursor, set_cursor] = useState(0)
-    let [dialog, set_dialog] = useState<'category' | 'ofuru' | null>(null)
+    let [dialog, set_dialog] = useState<'category' | 'ofuru' | 'history' | null>(null)
     let [lastSaved, set_lastSaved] = useState<dayjs.Dayjs | null>(null)
     let [text, set_text] = useState(context.text);
 
@@ -117,6 +119,9 @@ function TextInput() {
         <Tooltip title={context.saving ? '保存中...' : <div>保存 (Ctrl+S){lastSaved ? <><br />上次保存: {lastSaved.format("HH:mm:ss")}</> : ''}</div>}>
             <Button type="text" size="small" icon={<AiOutlineSave />} loading={context.saving} onClick={save} />
         </Tooltip>
+        <Tooltip title="历史记录">
+            <Button type="text" size="small" icon={<AiOutlineHistory />} onClick={() => set_dialog('history')} />
+        </Tooltip>
         <Tooltip title="卡片目录">
             <Button type="text" size="small" icon={<AiOutlineGroup />} onClick={() => set_dialog('category')} />
         </Tooltip>
@@ -145,6 +150,7 @@ function TextInput() {
         }
     } />
     <OfuruModal open={dialog === 'ofuru'} onCancel={() => set_dialog(null)} />
+    <HistoryModal open={dialog === 'history'} onCancel={() => set_dialog(null)} filename={context.filename} currentText={text} onRestore={(t) => { set_text(t); scheduleRefresh(); }} />
         
     </div>
 }
@@ -205,6 +211,82 @@ function OfuruModal(props: GetProps<typeof Modal>) {
         {...props}>
         <Input.TextArea className="ofuru-input" value={content} onChange={(e) => set_content((e.target as HTMLTextAreaElement)?.value)} />
     </Modal>
+}
+
+type HistoryEntry = { key: string; timestamp: dayjs.Dayjs; text?: string };
+
+function HistoryModal(props: GetProps<typeof Modal> & { filename: string; currentText: string; onRestore: (text: string) => void }) {
+    let { filename, currentText, onRestore, ...modal_props } = props;
+    let [side_by_side, set_side_by_side] = useState(true);
+    let [entries, set_entries] = useState<HistoryEntry[]>([]);
+    let [selected, set_selected] = useState<HistoryEntry | null>(null);
+    let [loading, set_loading] = useState(false);
+
+    let load = async () => {
+        if (!filename) return;
+        set_loading(true);
+        let keys = await list_history(filename);
+        let result: HistoryEntry[] = [];
+        for (let key of keys) {
+            let parsed = history_timestamp(key);
+            if (parsed == null) continue;
+            result.push({ key, timestamp: parsed });
+        }
+        result = result.reverse()
+        set_entries(result);
+        set_loading(false);
+        if (result.length > 0)
+            select(result[0]);
+    };
+
+    let select = async (entry: HistoryEntry) => {
+        if (entry.text == null)
+            entry.text = await current_storage.getItem<string>(entry.key) ?? "";
+        set_selected(entry);
+    };
+
+    useEffect(() => { if (props.open) load(); }, [props.open, filename]);
+
+    return <Modal 
+        title={<span>历史记录 <Switch checked={side_by_side} onChange={set_side_by_side} checkedChildren="双框" unCheckedChildren="单框" style={{ marginLeft: 12 }} /></span>}
+        className="card-history-modal"
+        width={1400} 
+        footer={null} 
+        closable={false} 
+        {...modal_props} 
+        destroyOnHidden>
+        <Spin spinning={loading}>
+            <Row gutter={12}>
+                <Col className="history-sidebar" flex="200px">
+                    {entries.map((entry) =>
+                        <div key={entry.key}
+                            className={"history-entry" + (selected?.key === entry.key ? " active" : "")}
+                            onClick={() => select(entry)}>
+                            {entry.timestamp.format("YYYY-MM-DD HH:mm:ss")}
+                        </div>
+                    )}
+                </Col>
+                <Col flex="auto">
+                    {selected
+                        ? <div key={`${selected.key}_${side_by_side}`}>
+                            <DiffEditor
+                                height="80vh"
+                                language="plaintext"
+                                original={selected.text}
+                                modified={currentText}
+                                theme="vs"
+                                options={{ readOnly: true, renderSideBySide: side_by_side, minimap: { enabled: false }, scrollBeyondLastLine: false }}
+                            />
+                            <div className="history-restore">
+                                <Button type="primary" onClick={() => { onRestore(selected.text ?? ""); modal_props.onCancel?.call(null, null as any); }}>恢复到此版本</Button>
+                            </div>
+                        </div>
+                        : null
+                    }
+                </Col>
+            </Row>
+        </Spin>
+    </Modal>;
 }
 
 export default TextInput

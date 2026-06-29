@@ -47,7 +47,7 @@ class WebDavClientWrapper {
         max_layer = max_layer ?? 999999
         let contents = await this.client.getDirectoryContents(path ?? "/") as FileStat[]
         for (let item of contents) {
-            if (item.basename.startsWith("."))
+            if (item.basename.startsWith(".") && item.basename !== ".history")
                 continue
             else if (item.type == 'file')
                 keys.push(item.filename)

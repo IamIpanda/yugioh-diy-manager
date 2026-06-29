@@ -1,12 +1,12 @@
 import { Row, Col, Divider, Spin } from 'antd'
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { Editor } from './editor'
 import { Header } from './header'
 import TextInput from './Input'
 import { default_config_value, default_context_value, AppContext, ConfigContext, reload_context, Context } from './model/context'
 
 import "./app.css"
-import { current_storage } from './model/storage'
+import { persist } from './model/history';
 
 export function App({ context_value }: { context_value?: Partial<Context> }) {
     let [config, set_config] = useState(default_config_value)
@@ -15,11 +15,19 @@ export function App({ context_value }: { context_value?: Partial<Context> }) {
     context.set_context = set_context;
     if (context_value == null)
         useEffect(() => { reload_context(context) }, [])
-    // check filename to prevent it override the whole world when first load.
-    useEffect(() => { if (context.filename && context.filename != '') set_context(c => ({ ...c, saving: true })) }, [context.text])
+    let text_loaded_from_storage = useRef(false)
+    useEffect(() => { text_loaded_from_storage.current = true }, [context.filename])
+    useEffect(() => {
+        if (text_loaded_from_storage.current) {
+            text_loaded_from_storage.current = false
+            return
+        }
+        if (context.filename && context.filename != '')
+            set_context(c => ({ ...c, saving: true }))
+    }, [context.text])
     useEffect(() => {
         if (!context.saving || !context.filename || context.filename == '') return
-        current_storage.setItem(context.filename, context.text).finally(() => set_context(c => ({ ...c, saving: false })))
+        persist(context.filename, context.text, config.history).finally(() => set_context(c => ({ ...c, saving: false })))
     }, [context.saving])
     return  <ConfigContext.Provider value={config}>
             <AppContext.Provider value={context}>
