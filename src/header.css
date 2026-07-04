@@ -18,6 +18,10 @@
     margin-right: 4px;
 }
 
+body.dark .header svg {
+    color: rgba(255, 255, 255, 0.85);
+}
+
 .package-table svg, .filename-menu svg {
     margin-left: 5px;
     vertical-align: middle;

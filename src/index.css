@@ -6,6 +6,10 @@ body {
     margin: 0;
 }
 
+body.dark {
+    background-color: #141414;
+}
+
 html body #app textarea {
     resize: none;
 }

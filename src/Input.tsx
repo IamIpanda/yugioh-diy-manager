@@ -1,7 +1,7 @@
 
 import { useContext, useEffect, useRef, useState } from "react";
 import dayjs from 'dayjs'
-import { Table, Modal, Input, GetRef, TableColumnsType, GetProps, Alert, Button, Tooltip, Row, Col, Spin, Switch } from "antd";
+import { Table, Modal, Input, GetRef, TableColumnsType, GetProps, Alert, Button, Tooltip, Row, Col, Spin, Switch, Menu } from "antd";
 import { AiFillSound, AiOutlineGroup, AiOutlineSave, AiOutlineHistory } from "react-icons/ai";
 import { DiffEditor } from "@monaco-editor/react";
 
@@ -216,6 +216,7 @@ function OfuruModal(props: GetProps<typeof Modal>) {
 type HistoryEntry = { key: string; timestamp: dayjs.Dayjs; text?: string };
 
 function HistoryModal(props: GetProps<typeof Modal> & { filename: string; currentText: string; onRestore: (text: string) => void }) {
+    let config = useContext(ConfigContext)
     let { filename, currentText, onRestore, ...modal_props } = props;
     let [side_by_side, set_side_by_side] = useState(true);
     let [entries, set_entries] = useState<HistoryEntry[]>([]);
@@ -257,15 +258,18 @@ function HistoryModal(props: GetProps<typeof Modal> & { filename: string; curren
         destroyOnHidden>
         <Spin spinning={loading}>
             <Row gutter={12}>
-                <Col className="history-sidebar" flex="200px">
-                    {entries.map((entry) =>
-                        <div key={entry.key}
-                            className={"history-entry" + (selected?.key === entry.key ? " active" : "")}
-                            onClick={() => select(entry)}>
-                            {entry.timestamp.format("YYYY-MM-DD HH:mm:ss")}
-                        </div>
-                    )}
-                </Col>
+                <Menu
+                    style={{ width: 200, maxHeight: '60vh', overflow: 'auto' }}
+                    selectedKeys={selected ? [selected.key] : []}
+                    onClick={({ key }) => {
+                        const entry = entries.find(e => e.key === key)
+                        if (entry) select(entry)
+                    }}
+                    items={entries.map(entry => ({
+                        key: entry.key,
+                        label: entry.timestamp.format("YYYY-MM-DD HH:mm:ss")
+                    }))}
+                />
                 <Col flex="auto">
                     {selected
                         ? <div key={`${selected.key}_${side_by_side}`}>
@@ -274,7 +278,7 @@ function HistoryModal(props: GetProps<typeof Modal> & { filename: string; curren
                                 language="plaintext"
                                 original={selected.text}
                                 modified={currentText}
-                                theme="vs"
+                                theme={config.isDark ? "vs-dark" : "vs"}
                                 options={{ readOnly: true, renderSideBySide: side_by_side, minimap: { enabled: false }, scrollBeyondLastLine: false }}
                             />
                             <div className="history-restore">

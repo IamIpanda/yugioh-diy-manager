@@ -35,6 +35,7 @@ export type Config = {
     image: ImageConfig,
     zh_cn_style: ZH_CN_Style,
     history: HistoryConfig,
+    isDark: boolean,
     set_config: Dispatch<StateUpdater<Config>>
 }
 
@@ -60,14 +61,11 @@ export let default_config_value: Config = {
     auto_remove_newline: is_auto_remove_newline_option(plain_default_config_value.auto_remove_newline) ? plain_default_config_value.auto_remove_newline : default_values.config.auto_remove_newline as AutoRemoveNewLineOption,
     not_effect_rules: transform_not_effect_rules(plain_default_config_value.not_effect_rules),
     ofurus: build_trie(typeof plain_default_config_value.ofurus === 'string' ? plain_default_config_value.ofurus : default_values.config.ofurus),
-    image: plain_default_config_value.image ?? default_values.config.image,
+    image: { ...default_values.config.image, ...plain_default_config_value.image },
     zh_cn_style: (plain_default_config_value.zh_cn_style ?? default_values.config.zh_cn_style) as any as ZH_CN_Style,
-    history: {
-        enabled: plain_default_config_value.history?.enabled ?? default_values.config.history.enabled,
-        max_count: plain_default_config_value.history?.max_count ?? default_values.config.history.max_count,
-        min_interval: plain_default_config_value.history?.min_interval ?? default_values.config.history.min_interval,
-    },
+    history: { ...default_values.config.history, ...plain_default_config_value.history },
     set_config: null as any,
+    isDark: false,
 }
 
 export async function load_context(callback?: (message: string) => void) {
@@ -101,6 +99,10 @@ export async function reload_context(context: Context) {
     }
     catch(e) {
         console.error(e)
+        let package_name = await current_package_name()
+        let error_filename = "error_hint.txt"
+        let error_text = `# 数据库【${context.filename || package_name}】读取失败.`
+        context.set_context({...context, loading: undefined, text: error_text, filename: error_filename, filenames: context.filenames || [error_filename]})
     }
 }
 

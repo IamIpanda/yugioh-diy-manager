@@ -1,6 +1,7 @@
 import { Dispatch, StateUpdater, useContext, useEffect, useRef, useState } from 'preact/hooks'
 import { Flex, Modal, Upload, Tooltip, Button, Typography, Space, Input, GetProps, Dropdown, Table, Switch, InputRef, TreeDataNode, Tree, Form, Spin, Alert, Checkbox, Select, Collapse, InputNumber, Tabs } from 'antd';
 import { AiOutlineDownload, AiOutlineQuestionCircle, AiOutlineSetting, AiOutlineUpload, AiOutlineFolderOpen, AiOutlineDatabase, AiOutlineDelete, AiOutlineRedo, AiFillCheckCircle, AiOutlineUnorderedList, AiOutlineFolderAdd, AiOutlineFileText, AiOutlineCloudServer } from "react-icons/ai";
+import { FiSun, FiMoon } from "react-icons/fi";
 import { RiArchiveStackLine, RiDownloadCloud2Line } from "react-icons/ri";
 import { VscDebug } from 'react-icons/vsc';
 
@@ -44,16 +45,22 @@ const config = useContext(ConfigContext);
     const history_enabled = Form.useWatch('enabled', history_form)
 
     useEffect(() => {
+        if (prop.is_open) {
+            image_form.resetFields()
+            history_form.resetFields()
+            text_form.resetFields()
+        }
         localforage.getItem("config").then((c) => {
-            set_not_effect_rules((c as any ?? {}).not_effect_rules)
-            set_ofurus((c as any ?? {}).ofurus ?? default_values.config.ofurus)
-            set_zh_cn_style((c as any ?? {}).zh_cn_style ?? config.zh_cn_style)
+            let saved = (c ?? {}) as any
+            set_not_effect_rules(saved.not_effect_rules ?? "")
+            set_ofurus(saved.ofurus ?? default_values.config.ofurus)
+            set_zh_cn_style(saved.zh_cn_style ?? config.zh_cn_style)
         })
         current_storage.getItem("strings.conf").then((c) => set_package_strings(c as string ?? ""), () => set_package_strings(""))
     }, [prop.is_open])
     const on_close = async () => {
-        let image = image_form.getFieldsValue(true)
-        let history = history_form.getFieldsValue(true)
+        let image = { ...config.image, ...image_form.getFieldsValue(true) }
+        let history = { ...config.history, ...history_form.getFieldsValue(true) }
         config.set_config({ 
             ...config, 
             auto_remove_newline,
@@ -66,6 +73,7 @@ const config = useContext(ConfigContext);
         })
         let save_config: any = { ...config, strings: internal_strings, ofurus, not_effect_rules, auto_remove_newline, image, zh_cn_style, history }
         delete save_config.set_config
+        delete save_config.isDark
         await localforage.setItem("config", save_config)
         try {
             if (package_strings.length > 0) 
@@ -653,6 +661,7 @@ function PackageModal(props: GetProps<typeof Modal> & { package_name: string }) 
 
 export function Header() {
     const context = useContext(AppContext)
+    const config = useContext(ConfigContext)
     const [dialog, set_dialog] = useState<string | null>(CURRENT_VERSION > seen_help ? 'help' : null)
     const close_dialog = () => set_dialog(null)
     return <Flex justify="space-between" className="header full">
@@ -666,6 +675,7 @@ export function Header() {
             <Tooltip title='上传并新建'><UploadWrapper><Button aria-label='upload' variant='link' icon={<AiOutlineUpload />} /></UploadWrapper></Tooltip>
             <Dropdown menu={{ items: DownloadMenu() }}><Button aria-label='download' variant='link' icon={<AiOutlineDownload />} /></Dropdown>
             <Dropdown menu={{ items: PackageMenu(set_dialog, context) }}><Button aria-label='packages' variant='link' icon={<AiOutlineFolderOpen />}></Button></Dropdown>
+            <Tooltip title={config.isDark ? '切换日间模式' : '切换夜间模式'}><Button aria-label='theme' variant='link' onClick={() => config.set_config({ ...config, isDark: !config.isDark })} icon={config.isDark ? <FiSun /> : <FiMoon />} /></Tooltip>
             <Tooltip title='帮助'><Button aria-label='help' variant='link' onClick={() => set_dialog("help")} icon={<AiOutlineQuestionCircle />} /></Tooltip>
             <Tooltip title='设置'><Button aria-label='settings' variant='link' onClick={() => set_dialog("settings")} icon={<AiOutlineSetting />} /></Tooltip >
             <SettingsModal is_open={dialog == 'settings'} on_close={() => { set_dialog(null) }} />

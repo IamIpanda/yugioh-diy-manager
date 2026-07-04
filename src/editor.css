@@ -160,6 +160,10 @@ textarea.pendulum-text {
     padding-bottom: 10px;
 }
 
+.ant-modal #full-card {
+    color: black;
+}
+
 .full-card-generate-container {
     justify-content: center;
     margin-top: 10px;

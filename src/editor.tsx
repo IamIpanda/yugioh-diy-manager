@@ -558,7 +558,7 @@ export function Editor() {
             <div id="script" style={{ width: '100%', height: '70vh', maxHeight: '1200px' }}>
                 <MonacoEditor
                     language="lua"
-                    theme="vs"
+                    theme={config.isDark ? "vs-dark" : "vs"}
                     defaultValue={editing_text}
                     onChange={(value) => set_editing_text(value ?? "")}
                     loading={<Spin />}
