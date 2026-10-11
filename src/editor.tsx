@@ -125,10 +125,11 @@ function MetadataModal(props: { card: Card } & GetProps<typeof Modal>) {
         else if (m === "默认风格") initial.zh_cn_style = "默认风格"
         else if (m === "映蝶风格") initial.zh_cn_style = "映蝶风格"
         else if (m === "ygopro风格") initial.zh_cn_style = "ygopro风格"
+        else if (m === "仿ygopro风格") initial.zh_cn_style = "仿ygopro风格"
         else if (m === "翼神龙") initial.god_frame = "翼神龙"
         else if (m === "巨神兵") initial.god_frame = "巨神兵"
         else if (m === "天空龙") initial.god_frame = "天空龙"
-    let exact_keys = ["日语", "日文", "韩语", "韩文", "全框卡", "出框卡", "移除回车", "移除序号前的回车", "保留回车", "自动注音", "默认风格", "映蝶风格", "ygopro风格", "翼神龙", "巨神兵", "天空龙", "winged-dragon", "tormentor", "sky-dragon"]
+    let exact_keys = ["日语", "日文", "韩语", "韩文", "全框卡", "出框卡", "移除回车", "移除序号前的回车", "保留回车", "自动注音", "默认风格", "映蝶风格", "ygopro风格", "仿ygopro风格", "翼神龙", "巨神兵", "天空龙", "winged-dragon", "tormentor", "sky-dragon"]
     let prefix_keys = ["效果缩放","灵摆缩放","替换卡名"]
 
     return <Modal {...modal_props} footer={null} title={`编辑 ${card.name}(${card.code}) 元信息`} closable={false} width="400px" destroyOnHidden
@@ -162,7 +163,8 @@ function MetadataModal(props: { card: Card } & GetProps<typeof Modal>) {
                     { label: '遵循全局', value: '' },
                     { label: '默认风格（custom1）', value: '默认风格' },
                     { label: '映蝶风格（ygo-sc）', value: '映蝶风格' },
-                    { label: 'ygopro风格（custom2）', value: 'ygopro风格' },
+                    { label: 'ygopro风格（imggen）', value: 'ygopro风格' },
+                    { label: '仿ygopro风格（custom2）', value: '仿ygopro风格' },
                 ]} />
             </Form.Item>
             <Form.Item name="newline" label="回车策略">
@@ -333,7 +335,8 @@ export function Editor() {
             else if (meta === "韩语" || meta === "韩文") card_image_props.lang = Data.Language.KR;
             else if (meta === "默认风格" || meta === "自定义1风格" ) card_image_props.zh_cn_style = Data.ZH_CN_Style.Custom1;
             else if (meta === "映蝶风格" || meta === "简体中文风格") card_image_props.zh_cn_style = Data.ZH_CN_Style.YD;
-            else if (meta === "ygopro风格" || meta === "自定义2风格") card_image_props.zh_cn_style = Data.ZH_CN_Style.Custom2;
+            else if (meta === "仿ygopro风格" || meta === "自定义2风格") card_image_props.zh_cn_style = Data.ZH_CN_Style.Custom2;
+            else if (meta === "ygopro风格" || meta === "imggen风格") card_image_props.zh_cn_style = Data.ZH_CN_Style.ImgGen;
             else if (meta === "翼神龙") card_image_props.metas = [...(card_image_props.metas ?? []), "winged-dragon"];
             else if (meta === "巨神兵") card_image_props.metas = [...(card_image_props.metas ?? []), "tormentor"];
             else if (meta === "天空龙") card_image_props.metas = [...(card_image_props.metas ?? []), "sky-dragon"];
@@ -364,14 +367,14 @@ export function Editor() {
     if (remove_newline == 'before_order') {
         const remove_newline_regex = /\n[②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳㉑㉒㉓㉔㉕㉖㉗㉘㉙㉚㉛㉜㉝㉞㉟㊱㊲㊳㊴㊵㊶㊷㊸㊹㊺㊻㊼㊽㊾㊿]/g
         enable_card_proxy();
-        card_override.desc = (card_override.desc ?? card.desc).replace(remove_newline_regex, (match) => match.substring(1));
+        card_override.desc = (card_override.desc ?? card.desc ?? "").replace(remove_newline_regex, (match) => match.substring(1));
         card_override.pendulum_text = (card_override.pendulum_text ?? card.pendulum_text)?.replace(remove_newline_regex, (match) => match.substring(1));
     }
     else if (remove_newline == 'aggressive') {
         let keep_first_line = (card.type & (Data.Type.Xyz | Data.Type.Synchro | Data.Type.Fusion | Data.Type.Link)) > 0;
         enable_card_proxy();
         card_override.pendulum_text = (card_override.pendulum_text ?? card.pendulum_text)?.replace(/\n/g, '');
-        let lines = (card_override.desc ?? card.desc).split('\n');
+        let lines = (card_override.desc ?? card.desc ?? "").split('\n');
         if (keep_first_line && lines.length > 0) lines[0] = lines[0] + "\n"
         card_override.desc = lines.join('');
         //card_override.desc = lines.map((line) => line.startsWith('●') ? '\n' + line + '\n' : line).join('').replace(/\n\n/g, "\n");

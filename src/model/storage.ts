@@ -246,7 +246,7 @@ export async function generate_package(files?: Record<string, string>, callback?
         callback?.call(null, i, total, filename)
         if (filename.startsWith('pico/') || filename.startsWith(".")) continue
         else if (filename.endsWith(".txt")) {
-            let database = generate_from_text(files?.[filename] ?? (await current_storage.getItem(filename)) as string)
+            let database = generate_from_text(files?.[filename] || (await current_storage.getItem(filename)) as string)
             filename = filename.substring(0, filename.length - 4) + ".cdb"
             await zip_writer.add(filename, new BlobReader(new Blob([database])))
             written[filename] = true

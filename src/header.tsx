@@ -168,7 +168,8 @@ const config = useContext(ConfigContext);
                     options={[
                         { label: '默认风格（custom1）', value: 'c1' },
                         { label: '映蝶风格（ygo-sc）', value: 'yd' },
-                        { label: 'ygopro风格（custom2）', value: 'c2' },
+                        { label: 'ygopro风格（imggen）', value: 'ig' },
+                        { label: '仿ygopro风格（custom2）', value: 'c2' },
                     ]} />
             </Flex>,
         },
@@ -432,7 +433,10 @@ function DownloadMenu() {
         key: 'database',
         label: <div>下载数据库（.cdb）</div>,
         icon: <AiOutlineDatabase />,
-        onClick: () => download_database(context.selected_cards.length > 0 ? context.selected_cards.map(format).join("\n") : context.text)
+        onClick: () => {
+            const cards = context.selected_cards[context.filename] || [];
+            download_database(context.filename, cards.length > 0 ? cards.map(format).join("\n") : context.text)
+        }
     }, {
         key: 'json',
         label: <div>下载数据（.json）</div>,
@@ -493,11 +497,11 @@ function upload_file(callback: (filename: string, result: ArrayBuffer | string) 
     return Upload.LIST_IGNORE
 }
 
-async function download_database(text: string) {
+async function download_database(filename: string, text: string) {
     let arr = generate_from_text(text);
     let blob = new Blob([arr], {type: "application/x-sqlite3"});
-    let package_name = await current_package_name() ?? "MyDIY" 
-    download(package_name + ".cdb", blob)
+    let database_name = generate_package_name_from_filename(filename)
+    download(database_name + ".cdb", blob)
 }
 
 async function download_package(context: Context) {
@@ -507,21 +511,23 @@ async function download_package(context: Context) {
             context.set_context({ ...context, loading: `正在生成卡包 (${current_index + 1}/${current_total}, ${current_filename})...` })
     }, 300)
     let files: Record<string, string> | undefined = undefined
-    if (context.selected_cards.length > 0) {
+    if (Object.keys(context.selected_cards).length > 0) {
         files = {}
-        let allow_script_files = context.selected_cards.map(card => "script/c" + card.code + ".lua")
-        let allow_pics_files = context.selected_cards.map(card => "pics/" + card.code + ".jpg")
+        const all_cards = Object.values(context.selected_cards).flat();
+        let allow_script_files = all_cards.map(card => "script/c" + card.code + ".lua")
+        let allow_pics_files = all_cards.map(card => "pics/" + card.code + ".jpg")
         for (let file of (await current_storage.keys())) {
-            if (file == context.filename) {
-                files[file] = context.selected_cards.map(format).join("\n")
+            if (context.selected_cards[file]) {
+                files[file] = context.selected_cards[file].map(format).join("\n")
             } else if (file.startsWith("script/")) {
                 if (allow_script_files.indexOf(file) >= 0)
                     files[file] = ""
             } else if (file.startsWith("pics/")) {
                 if (allow_pics_files.indexOf(file) >= 0)
                     files[file] = ""
-            } else
+            } else if (file === "strings.conf" || file === "corres_srv.ini") {
                 files[file] = ""
+            }
         }
     }
     let blob = await generate_package(files, (index, total, filename) => { 
@@ -602,7 +608,7 @@ function FilenameMenu(context: Context) {
         return []
     return filenames.map((name) => ({
         key: filename_set[name],
-        label: <div class="filename-menu">{name} {name == context.filename ? <AiFillCheckCircle size={18} /> : ""}</div>,
+        label: <div class="filename-menu">{name} {name == generate_package_name_from_filename(context.filename) ? <AiFillCheckCircle size={18} /> : ""}</div>,
         onClick: (e: any) => { call(e) }
     }))
 }

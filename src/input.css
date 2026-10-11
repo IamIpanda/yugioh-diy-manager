@@ -57,3 +57,7 @@ body.dark #text-area {
     margin-top: 12px;
     text-align: right;
 }
+
+.has-selected {
+    color: rgb(179, 116, 45);
+}

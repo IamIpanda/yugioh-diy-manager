@@ -22,7 +22,17 @@ body.dark .header svg {
     color: rgba(255, 255, 255, 0.85);
 }
 
-.package-table svg, .filename-menu svg {
+.filename-menu {
+    display: flex;
+    align-items: center;
+}
+
+.filename-menu svg {
+    margin-left: auto;
+    vertical-align: middle;
+}
+
+.package-table svg {
     margin-left: 5px;
     vertical-align: middle;
 }

@@ -48,7 +48,7 @@ export type Context = {
     card_signal: boolean,
     disable_refresh: boolean,
     cards: BinaryCard[],
-    selected_cards: BinaryCard[],
+    selected_cards: Record<string, BinaryCard[]>,
     saving: boolean,
     loading?: string,
     set_context: Dispatch<StateUpdater<Context>>
@@ -120,7 +120,7 @@ export const default_context_value: Context = {
     text: "",
     cards: [],
     
-    selected_cards: [],
+    selected_cards: {},
     saving: false,
     card_signal: false,
     disable_refresh: false,

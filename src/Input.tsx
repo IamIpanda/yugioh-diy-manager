@@ -24,6 +24,8 @@ function TextInput() {
 
     let [cursor, set_cursor] = useState(0)
     let [dialog, set_dialog] = useState<'category' | 'ofuru' | 'history' | null>(null)
+    let dialog_ref = useRef<typeof dialog>(null)
+    dialog_ref.current = dialog
     let [lastSaved, set_lastSaved] = useState<dayjs.Dayjs | null>(null)
     let [text, set_text] = useState(context.text);
 
@@ -103,10 +105,14 @@ function TextInput() {
                 e.preventDefault()
                 save()
             }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f' && dialog === null) {
+                e.preventDefault()
+                set_dialog('category')
+            }
         }
         document.addEventListener('keydown', onKeyDown)
         return () => document.removeEventListener('keydown', onKeyDown)
-    }, [])
+    }, [dialog])
     
     return <div class="full" id="input">
     <Input.TextArea 
@@ -122,8 +128,8 @@ function TextInput() {
         <Tooltip title="历史记录">
             <Button type="text" size="small" icon={<AiOutlineHistory />} onClick={() => set_dialog('history')} />
         </Tooltip>
-        <Tooltip title="卡片目录">
-            <Button type="text" size="small" icon={<AiOutlineGroup />} onClick={() => set_dialog('category')} />
+            <Tooltip title={<>卡片目录{Object.keys(context.selected_cards).length > 0 ? [<br />, "当前处于过滤模式"] : null}</>}>
+            <Button className={Object.keys(context.selected_cards).length > 0 ? 'has-selected' : ''} type="text" size="small" icon={<AiOutlineGroup />} onClick={() => set_dialog('category')} />
         </Tooltip>
         {context.card && context.card?.metas?.indexOf("日语") >= 0 && (
             <Tooltip title="注音">
@@ -178,8 +184,15 @@ function CategoryModal(props: Omit<GetProps<typeof Modal>, 'onOk'> & { onOk: (re
             columns={CARD_SEARCH_COLUMNS}
             rowSelection={{ 
                 columnWidth: 32, 
-                selectedRowKeys: context.selected_cards.map((c) => c.code), 
-                onSelect: (_r, _s, rows) => context.set_context({ ...context, selected_cards: rows }), 
+                selectedRowKeys: (context.selected_cards[context.filename] || []).map((c) => c.code), 
+                onSelect: (_r, _s, rows) => {
+                    const next = { ...context.selected_cards };
+                    if (rows.length > 0)
+                        next[context.filename] = rows;
+                    else
+                        delete next[context.filename];
+                    context.set_context({ ...context, selected_cards: next });
+                }, 
                 onCell: (_) => ({
                     onClick: (e) => {
                         e.stopPropagation()
@@ -193,7 +206,7 @@ function CategoryModal(props: Omit<GetProps<typeof Modal>, 'onOk'> & { onOk: (re
                 }
             }}
         />
-        {(context.selected_cards.length > 0) && <Alert showIcon type="warning" message="勾选了卡的场合，没有勾选的卡会在下载时被移除。" />}
+        {(Object.keys(context.selected_cards).length > 0) && <Alert showIcon type="warning" message="勾选了卡的场合，没有勾选的卡会在下载时被移除。" />}
     </Modal>
 }
 
